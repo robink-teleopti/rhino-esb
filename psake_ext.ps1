@@ -7,7 +7,7 @@ function Get-Git-Commit
 function Get-Version-From-Git-Tag
 {
   $gitTag = git describe --tags --abbrev=0
-  return $gitTag.Replace("v", "") + ".0"
+  return $gitTag.Replace("v", "") + ".1"
 }
 
 function Generate-Assembly-Info
