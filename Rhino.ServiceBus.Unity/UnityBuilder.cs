@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Linq;
-using System.Messaging;
 using System.Transactions;
 using Microsoft.Practices.Unity;
-using Rhino.Queues;
 using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
@@ -15,9 +13,12 @@ using Rhino.ServiceBus.MessageModules;
 using Rhino.ServiceBus.Msmq;
 using Rhino.ServiceBus.Msmq.TransportActions;
 using Rhino.ServiceBus.RhinoQueues;
+using Rhino.ServiceBus.SqlQueues;
 using ErrorAction = Rhino.ServiceBus.Msmq.TransportActions.ErrorAction;
 using IStartable = Rhino.ServiceBus.Internal.IStartable;
 using LoadBalancerConfiguration = Rhino.ServiceBus.LoadBalancer.LoadBalancerConfiguration;
+using Message = System.Messaging.Message;
+using MessagePayload = Rhino.Queues.MessagePayload;
 
 namespace Rhino.ServiceBus.Unity
 {
@@ -255,6 +256,33 @@ namespace Rhino.ServiceBus.Unity
                 new ContainerControlledLifetimeManager());
         }
 
+        public void RegisterSqlQueuesTransport()
+        {
+            var busConfig = config.ConfigurationSection.Bus;
+            container.RegisterType<ISubscriptionStorage, SqlSubscriptionStorage>(
+                new ContainerControlledLifetimeManager(),
+                new InjectionConstructor(
+                    new InjectionParameter<string>(busConfig.Path),
+                    new ResolvedParameter<IMessageSerializer>(),
+                    new ResolvedParameter<IReflection>()));
+
+            container.RegisterType<ITransport, RhinoQueuesTransport>(
+                new ContainerControlledLifetimeManager(),
+                new InjectionConstructor(
+                    new InjectionParameter<Uri>(config.Endpoint),
+                    new ResolvedParameter<IEndpointRouter>(),
+                    new ResolvedParameter<IMessageSerializer>(),
+                    new InjectionParameter<int>(config.ThreadCount),
+                    new InjectionParameter<string>(busConfig.Path),
+                    new InjectionParameter<IsolationLevel>(config.IsolationLevel),
+                    new InjectionParameter<int>(config.NumberOfRetries),
+                    new InjectionParameter<bool>(busConfig.EnablePerformanceCounters),
+                    new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
+
+            container.RegisterType<IMessageBuilder<SqlQueues.MessagePayload>, SqlQueuesMessageBuilder>(
+                new ContainerControlledLifetimeManager());
+        }
+
         public void RegisterRhinoQueuesOneWay()
         {
             var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
@@ -270,6 +298,23 @@ namespace Rhino.ServiceBus.Unity
                     new InjectionParameter<string>(busConfig.QueuePath),
                     new InjectionParameter<bool>(busConfig.EnablePerformanceCounters),
                     new ResolvedParameter<IMessageBuilder<MessagePayload>>()));
+        }
+
+        public void RegisterSqlQueuesOneWay()
+        {
+            var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
+            var busConfig = config.ConfigurationSection.Bus;
+
+            container.RegisterType<IMessageBuilder<SqlQueues.MessagePayload>, SqlQueuesMessageBuilder>(
+                new ContainerControlledLifetimeManager());
+            container.RegisterType<IOnewayBus, SqlQueuesOneWayBus>(
+                new ContainerControlledLifetimeManager(),
+                new InjectionConstructor(
+                    new InjectionParameter<MessageOwner[]>(oneWayConfig.MessageOwners),
+                    new ResolvedParameter<IMessageSerializer>(),
+                    new InjectionParameter<string>(busConfig.Path),
+                    new InjectionParameter<bool>(busConfig.EnablePerformanceCounters),
+                    new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
         }
 
         public void RegisterSecurity(byte[] key)

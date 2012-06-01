@@ -1,8 +1,5 @@
 using System;
 using System.Linq;
-using System.Messaging;
-
-using Rhino.Queues;
 using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
@@ -14,11 +11,13 @@ using Rhino.ServiceBus.MessageModules;
 using Rhino.ServiceBus.Msmq;
 using Rhino.ServiceBus.Msmq.TransportActions;
 using Rhino.ServiceBus.RhinoQueues;
-
+using Rhino.ServiceBus.SqlQueues;
 using Spring.Context;
 
 using ErrorAction = Rhino.ServiceBus.Msmq.TransportActions.ErrorAction;
 using LoadBalancerConfiguration = Rhino.ServiceBus.LoadBalancer.LoadBalancerConfiguration;
+using Message = System.Messaging.Message;
+using MessagePayload = Rhino.Queues.MessagePayload;
 
 namespace Rhino.ServiceBus.Spring
 {
@@ -230,6 +229,35 @@ namespace Rhino.ServiceBus.Spring
 
             applicationContext.RegisterSingleton<IMessageBuilder<MessagePayload>>(() => new RhinoQueuesMessageBuilder(applicationContext.Get<IMessageSerializer>()));
             applicationContext.RegisterSingleton<IOnewayBus>(() => new RhinoQueuesOneWayBus(oneWayConfig.MessageOwners, applicationContext.Get<IMessageSerializer>(), busConfig.QueuePath, busConfig.EnablePerformanceCounters, applicationContext.Get<IMessageBuilder<MessagePayload>>()));
+        }
+
+        public void RegisterSqlQueuesTransport()
+        {
+            var busConfig = config.ConfigurationSection.Bus;
+            applicationContext.RegisterSingleton<ISubscriptionStorage>(() => new SqlSubscriptionStorage(busConfig.Path,
+                                                                                  applicationContext.Get<IMessageSerializer>(),
+                                                                                  applicationContext.Get<IReflection>()));
+
+            applicationContext.RegisterSingleton<ITransport>(typeof(RhinoQueuesTransport).FullName, () => new SqlQueuesTransport(config.Endpoint,
+                                                                                                                                    applicationContext.Get<IEndpointRouter>(),
+                                                                                                                                    applicationContext.Get<IMessageSerializer>(),
+                                                                                                                                    config.ThreadCount,
+                                                                                                                                    busConfig.Path,
+                                                                                                                                    config.IsolationLevel,
+                                                                                                                                    config.NumberOfRetries,
+                                                                                                                                    busConfig.EnablePerformanceCounters,
+                                                                                                                                    applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
+
+            applicationContext.RegisterSingleton<IMessageBuilder<SqlQueues.MessagePayload>>(() => new SqlQueuesMessageBuilder(applicationContext.Get<IMessageSerializer>()));
+        }
+
+        public void RegisterSqlQueuesOneWay()
+        {
+            var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
+            var busConfig = config.ConfigurationSection.Bus;
+
+            applicationContext.RegisterSingleton<IMessageBuilder<SqlQueues.MessagePayload>>(() => new SqlQueuesMessageBuilder(applicationContext.Get<IMessageSerializer>()));
+            applicationContext.RegisterSingleton<IOnewayBus>(() => new SqlQueuesOneWayBus(oneWayConfig.MessageOwners, applicationContext.Get<IMessageSerializer>(), busConfig.Path, busConfig.EnablePerformanceCounters, applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
         }
 
         public void RegisterSecurity(byte[] key)

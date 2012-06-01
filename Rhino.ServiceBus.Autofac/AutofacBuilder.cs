@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Messaging;
 using Autofac;
-using Rhino.Queues;
 using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
@@ -15,8 +13,11 @@ using Rhino.ServiceBus.MessageModules;
 using Rhino.ServiceBus.Msmq;
 using Rhino.ServiceBus.Msmq.TransportActions;
 using Rhino.ServiceBus.RhinoQueues;
+using Rhino.ServiceBus.SqlQueues;
 using ErrorAction = Rhino.ServiceBus.Msmq.TransportActions.ErrorAction;
 using LoadBalancerConfiguration = Rhino.ServiceBus.LoadBalancer.LoadBalancerConfiguration;
+using Message = System.Messaging.Message;
+using MessagePayload = Rhino.Queues.MessagePayload;
 
 namespace Rhino.ServiceBus.Autofac
 {
@@ -253,6 +254,46 @@ namespace Rhino.ServiceBus.Autofac
             builder.RegisterType<RhinoQueuesOneWayBus>()
                 .WithParameter("messageOwners", oneWayConfig.MessageOwners)
                 .WithParameter("path", busConfig.QueuePath)
+                .WithParameter("enablePerformanceCounters", busConfig.EnablePerformanceCounters)
+                .As<IOnewayBus>()
+                .SingleInstance();
+            builder.Update(container);
+        }
+
+        public void RegisterSqlQueuesTransport()
+        {
+            var busConfig = config.ConfigurationSection.Bus;
+            var builder = new ContainerBuilder();
+            builder.RegisterType<SqlSubscriptionStorage>()
+                .WithParameter("connectionString", busConfig.Path)
+                .As<ISubscriptionStorage>()
+                .SingleInstance();
+            builder.RegisterType<SqlQueuesTransport>()
+                .WithParameter("threadCount", config.ThreadCount)
+                .WithParameter("endpoint", config.Endpoint)
+                .WithParameter("queueIsolationLevel", config.IsolationLevel)
+                .WithParameter("numberOfRetries", config.NumberOfRetries)
+                .WithParameter("connectionString", busConfig.Path)
+                .WithParameter("enablePerformanceCounters", busConfig.EnablePerformanceCounters)
+                .As<ITransport>()
+                .SingleInstance();
+            builder.RegisterType<SqlQueuesMessageBuilder>()
+                .As<IMessageBuilder<SqlQueues.MessagePayload>>()
+                .SingleInstance();
+            builder.Update(container);
+        }
+
+        public void RegisterSqlQueuesOneWay()
+        {
+            var builder = new ContainerBuilder();
+            var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
+            var busConfig = config.ConfigurationSection.Bus;
+            builder.RegisterType<SqlQueuesMessageBuilder>()
+                .As<IMessageBuilder<SqlQueues.MessagePayload>>()
+                .SingleInstance();
+            builder.RegisterType<SqlQueuesOneWayBus>()
+                .WithParameter("messageOwners", oneWayConfig.MessageOwners)
+                .WithParameter("connectionString", busConfig.Path)
                 .WithParameter("enablePerformanceCounters", busConfig.EnablePerformanceCounters)
                 .As<IOnewayBus>()
                 .SingleInstance();
