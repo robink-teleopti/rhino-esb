@@ -20,6 +20,10 @@ namespace Rhino.ServiceBus.Config
             {
                 builder.RegisterRhinoQueuesOneWay();
             }
+            else if (IsSqlQueues(messageOwnersReader.EndpointScheme))
+            {
+                builder.RegisterSqlQueuesOneWay();
+            }
             else
             {
                 builder.RegisterMsmqOneWay();
@@ -29,6 +33,11 @@ namespace Rhino.ServiceBus.Config
         private static bool IsRhinoQueues(string endpointScheme)
         {
             return endpointScheme.Equals("rhino.queues", StringComparison.InvariantCultureIgnoreCase);
+        }
+
+        private static bool IsSqlQueues(string endpointScheme)
+        {
+            return endpointScheme.Equals("sql.queues", StringComparison.InvariantCultureIgnoreCase);
         }
     }
 }
