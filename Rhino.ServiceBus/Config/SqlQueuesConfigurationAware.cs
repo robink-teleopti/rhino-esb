@@ -24,6 +24,10 @@ namespace Rhino.ServiceBus.Config
                 throw new ConfigurationErrorsException(
                     "Could not find attribute 'name' in node 'bus' in configuration");
 
+            if (string.IsNullOrEmpty(busConfigSection.Path))
+                throw new ConfigurationErrorsException(
+                    "Could not find attribute 'path' in node 'bus' in configuration");
+
             builder.RegisterSqlQueuesTransport();
         }
     }
