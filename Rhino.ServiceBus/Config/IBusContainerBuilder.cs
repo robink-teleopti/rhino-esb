@@ -17,6 +17,8 @@ namespace Rhino.ServiceBus.Config
         void RegisterMsmqOneWay();
         void RegisterRhinoQueuesTransport();
         void RegisterRhinoQueuesOneWay();
+        void RegisterSqlQueuesTransport();
+        void RegisterSqlQueuesOneWay();
         void RegisterSecurity(byte[] key);
         void RegisterNoSecurity();
     }

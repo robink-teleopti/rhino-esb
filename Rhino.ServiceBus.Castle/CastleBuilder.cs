@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Messaging;
 using Castle.Core;
 using Castle.Core.Configuration;
 using Castle.MicroKernel.Registration;
 using Castle.MicroKernel.Resolvers.SpecializedResolvers;
 using Castle.Windsor;
-using Rhino.Queues;
 using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
@@ -19,9 +17,12 @@ using Rhino.ServiceBus.MessageModules;
 using Rhino.ServiceBus.Msmq;
 using Rhino.ServiceBus.Msmq.TransportActions;
 using Rhino.ServiceBus.RhinoQueues;
+using Rhino.ServiceBus.SqlQueues;
 using ErrorAction = Rhino.ServiceBus.Msmq.TransportActions.ErrorAction;
 using IStartable = Rhino.ServiceBus.Internal.IStartable;
 using LoadBalancerConfiguration = Rhino.ServiceBus.LoadBalancer.LoadBalancerConfiguration;
+using Message = System.Messaging.Message;
+using MessagePayload = Rhino.Queues.MessagePayload;
 
 namespace Rhino.ServiceBus.Castle
 {
@@ -278,6 +279,55 @@ namespace Rhino.ServiceBus.Castle
                     .ImplementedBy<RhinoQueuesMessageBuilder>()
                     .LifeStyle.Is(LifestyleType.Singleton)
                 );
+        }
+        
+        public void RegisterSqlQueuesTransport()
+        {
+            var busConfig = config.ConfigurationSection.Bus;
+            container.Register(
+                Component.For<ISubscriptionStorage>()
+                    .LifeStyle.Is(LifestyleType.Singleton)
+                    .ImplementedBy(typeof(SqlSubscriptionStorage))
+                    .DependsOn(new
+                    {
+                        connectionString = busConfig.Path
+                    }),
+                Component.For<ITransport>()
+                    .LifeStyle.Is(LifestyleType.Singleton)
+                    .ImplementedBy(typeof(SqlQueuesTransport))
+                    .DependsOn(new
+                    {
+                        threadCount = config.ThreadCount,
+                        endpoint = config.Endpoint,
+                        queueIsolationLevel = config.IsolationLevel,
+                        numberOfRetries = config.NumberOfRetries,
+                        connectionString = busConfig.Path,
+                        enablePerformanceCounters = busConfig.EnablePerformanceCounters
+                    }),
+                Component.For<IMessageBuilder<SqlQueues.MessagePayload>>()
+                    .ImplementedBy<SqlQueuesMessageBuilder>()
+                    .LifeStyle.Is(LifestyleType.Singleton)
+                );
+        }
+
+        public void RegisterSqlQueuesOneWay()
+        {
+            var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
+            var busConfig = config.ConfigurationSection.Bus;
+            container.Register(
+                     Component.For<IMessageBuilder<SqlQueues.MessagePayload>>()
+                        .ImplementedBy<SqlQueuesMessageBuilder>()
+                        .LifeStyle.Is(LifestyleType.Singleton),
+                    Component.For<IOnewayBus>()
+                        .LifeStyle.Is(LifestyleType.Singleton)
+                        .ImplementedBy<SqlQueuesOneWayBus>()
+                        .DependsOn(new
+                        {
+                            messageOwners = oneWayConfig.MessageOwners.ToArray(),
+                            connectionString = busConfig.Path,
+                            enablePerformanceCounters = busConfig.EnablePerformanceCounters
+                        })
+                    );
         }
 
         public void RegisterRhinoQueuesOneWay()

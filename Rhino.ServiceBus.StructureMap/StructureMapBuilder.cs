@@ -1,8 +1,6 @@
 using System;
 using System.Linq;
-using System.Messaging;
 using System.Transactions;
-using Rhino.Queues;
 using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
@@ -14,9 +12,12 @@ using Rhino.ServiceBus.MessageModules;
 using Rhino.ServiceBus.Msmq;
 using Rhino.ServiceBus.Msmq.TransportActions;
 using Rhino.ServiceBus.RhinoQueues;
+using Rhino.ServiceBus.SqlQueues;
 using StructureMap;
 using ErrorAction = Rhino.ServiceBus.Msmq.TransportActions.ErrorAction;
 using LoadBalancerConfiguration = Rhino.ServiceBus.LoadBalancer.LoadBalancerConfiguration;
+using Message = System.Messaging.Message;
+using MessagePayload = Rhino.Queues.MessagePayload;
 
 namespace Rhino.ServiceBus.StructureMap
 {
@@ -216,6 +217,39 @@ namespace Rhino.ServiceBus.StructureMap
                 c.For<IOnewayBus>().Singleton().Use<RhinoQueuesOneWayBus>()
                     .Ctor<MessageOwner[]>().Is(oneWayConfig.MessageOwners)
                     .Ctor<string>().Is(busConfig.QueuePath)
+                    .Ctor<bool>().Is(busConfig.EnablePerformanceCounters);
+            });
+        }
+
+        public void RegisterSqlQueuesTransport()
+        {
+            container.Configure(c =>
+            {
+                var busConfig = config.ConfigurationSection.Bus;
+                c.For<ISubscriptionStorage>().Singleton().Use<SqlSubscriptionStorage>()
+                    .Ctor<string>().Is(busConfig.Path);
+                c.For<ITransport>().Singleton().Use<SqlQueuesTransport>()
+                    .Ctor<int>("threadCount").Is(config.ThreadCount)
+                    .Ctor<Uri>().Is(config.Endpoint)
+                    .Ctor<IsolationLevel>().Is(config.IsolationLevel)
+                    .Ctor<int>("numberOfRetries").Is(config.NumberOfRetries)
+                    .Ctor<string>().Is(busConfig.Path)
+                    .Ctor<bool>().Is(busConfig.EnablePerformanceCounters);
+                c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
+            });
+        }
+
+        public void RegisterSqlQueuesOneWay()
+        {
+            var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
+            var busConfig = config.ConfigurationSection.Bus;
+
+            container.Configure(c =>
+            {
+                c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
+                c.For<IOnewayBus>().Singleton().Use<SqlQueuesOneWayBus>()
+                    .Ctor<MessageOwner[]>().Is(oneWayConfig.MessageOwners)
+                    .Ctor<string>().Is(busConfig.Path)
                     .Ctor<bool>().Is(busConfig.EnablePerformanceCounters);
             });
         }
