@@ -1,16 +1,3 @@
-USE [Demoreg_TeleoptiAnalytics]
-GO
-
-/****** Object:  Table [Queue].[Messages]    Script Date: 06/01/2012 16:44:40 ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
-SET ANSI_PADDING ON
-GO
-
 CREATE TABLE [Queue].[Messages](
 	[MessageId] [int] IDENTITY(1,1) NOT NULL,
 	[QueueId] [int] NOT NULL,
@@ -28,19 +15,6 @@ CREATE TABLE [Queue].[Messages](
 
 GO
 
-SET ANSI_PADDING OFF
-GO
-
-USE [Demoreg_TeleoptiAnalytics]
-GO
-
-/****** Object:  Table [Queue].[Queues]    Script Date: 06/01/2012 16:44:40 ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
 CREATE TABLE [Queue].[Queues](
 	[QueueName] [nvarchar](50) NOT NULL,
 	[QueueId] [int] IDENTITY(1,1) NOT NULL,
@@ -54,19 +28,6 @@ CREATE TABLE [Queue].[Queues](
 
 GO
 
-USE [Demoreg_TeleoptiAnalytics]
-GO
-
-/****** Object:  Table [Queue].[SubscriptionStorage]    Script Date: 06/01/2012 16:44:40 ******/
-SET ANSI_NULLS ON
-GO
-
-SET QUOTED_IDENTIFIER ON
-GO
-
-SET ANSI_PADDING ON
-GO
-
 CREATE TABLE [Queue].[SubscriptionStorage](
 	[Id] [int] IDENTITY(1,1) NOT NULL,
 	[Key] [nvarchar](250) NOT NULL,
@@ -77,9 +38,6 @@ CREATE TABLE [Queue].[SubscriptionStorage](
 )WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
 ) ON [PRIMARY]
 
-GO
-
-SET ANSI_PADDING OFF
 GO
 
 ALTER TABLE [Queue].[Messages] ADD  CONSTRAINT [DF_Messages_CreatedAt]  DEFAULT (getdate()) FOR [CreatedAt]
