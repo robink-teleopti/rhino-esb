@@ -290,7 +290,8 @@ namespace Rhino.ServiceBus.Castle
                     .ImplementedBy(typeof(SqlSubscriptionStorage))
                     .DependsOn(new
                     {
-                        connectionString = busConfig.Path
+                        connectionString = busConfig.Path,
+                        localEndpoint = config.Endpoint.ToString()
                     }),
                 Component.For<ITransport>()
                     .LifeStyle.Is(LifestyleType.Singleton)

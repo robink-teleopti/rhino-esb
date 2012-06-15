@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using log4net;
@@ -17,7 +18,7 @@ namespace Rhino.ServiceBus.SqlQueues
 {
     public class SqlSubscriptionStorage : ISubscriptionStorage, IDisposable, IMessageModule
     {
-        private const string SubscriptionsKey = "subscriptions";
+        private const string SubscriptionsKey = "subscriptions_";
 
         private readonly Hashtable<string, List<WeakReference>> localInstanceSubscriptions =
             new Hashtable<string, List<WeakReference>>();
@@ -37,13 +38,16 @@ namespace Rhino.ServiceBus.SqlQueues
         private readonly Hashtable<string, HashSet<Uri>> subscriptions = new Hashtable<string, HashSet<Uri>>();
 
     	private bool currentlyLoadingPersistentData;
+        private string localEndpoint;
 
         public SqlSubscriptionStorage(
             string connectionString, 
+            string localEndpoint,
             IMessageSerializer messageSerializer,
             IReflection reflection)
         {
             this.connectionString = connectionString;
+            this.localEndpoint = localEndpoint;
             this.messageSerializer = messageSerializer;
             this.reflection = reflection;
         }
@@ -84,7 +88,7 @@ namespace Rhino.ServiceBus.SqlQueues
                     command.CommandType = CommandType.StoredProcedure;
                     command.CommandText = "Queue.GetItemsByKey";
                     command.Transaction = transaction;
-                    command.Parameters.AddWithValue("@Key", SubscriptionsKey);
+                    command.Parameters.AddWithValue("@Key", SubscriptionsKey+localEndpoint);
                     var reader = command.ExecuteReader();
                     while (reader.Read())
                     {
@@ -210,7 +214,8 @@ namespace Rhino.ServiceBus.SqlQueues
 
                 var uri = new Uri(endpoint);
                 added = subscriptionsForType.Add(uri);
-
+                Debug.WriteLine("Added subscription for {0} on {1}",
+                                  type, uri);
                 logger.InfoFormat("Added subscription for {0} on {1}",
                                   type, uri);
             });
@@ -302,7 +307,7 @@ namespace Rhino.ServiceBus.SqlQueues
                             command.Transaction = transaction;
                             command.CommandText = "Queue.RemoveItem";
                             command.CommandType = CommandType.StoredProcedure;
-                            command.Parameters.AddWithValue("@Key", SubscriptionsKey);
+                            command.Parameters.AddWithValue("@Key", SubscriptionsKey+localEndpoint);
                             foreach (var msgId in messageIds)
                             {
                                 command.Parameters.RemoveAt("@Id");
@@ -358,7 +363,7 @@ namespace Rhino.ServiceBus.SqlQueues
                             command.CommandText = "Queue.RemoveItem";
                             command.CommandType = CommandType.StoredProcedure;
                             command.Transaction = transaction;
-                            command.Parameters.AddWithValue("@Key", SubscriptionsKey);
+                            command.Parameters.AddWithValue("@Key", SubscriptionsKey+localEndpoint);
                             command.Parameters.AddWithValue("@Id", msgId);
                             command.ExecuteNonQuery();
                         }
@@ -387,7 +392,7 @@ namespace Rhino.ServiceBus.SqlQueues
                         command.CommandText = "Queue.AddItem";
                         command.CommandType = CommandType.StoredProcedure;
                         command.Transaction = transaction;
-                        command.Parameters.AddWithValue("@Key", SubscriptionsKey);
+                        command.Parameters.AddWithValue("@Key", SubscriptionsKey+localEndpoint);
                         command.Parameters.AddWithValue("@Value", message.ToArray());
                         
                         itemId = (int)(decimal)command.ExecuteScalar();
@@ -432,7 +437,7 @@ namespace Rhino.ServiceBus.SqlQueues
                             command.CommandText = "Queue.AddItem";
                             command.CommandType = CommandType.StoredProcedure;
                             command.Transaction = transaction;
-                            command.Parameters.AddWithValue("@Key", SubscriptionsKey);
+                            command.Parameters.AddWithValue("@Key", SubscriptionsKey+localEndpoint);
                             command.Parameters.AddWithValue("@Value", stream.ToArray());
 
                             itemId = (int)(decimal)command.ExecuteScalar();

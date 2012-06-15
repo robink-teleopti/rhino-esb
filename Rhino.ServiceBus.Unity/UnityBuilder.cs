@@ -263,6 +263,7 @@ namespace Rhino.ServiceBus.Unity
                 new ContainerControlledLifetimeManager(),
                 new InjectionConstructor(
                     new InjectionParameter<string>(busConfig.Path),
+                    new InjectionParameter<string>(config.Endpoint.ToString()),
                     new ResolvedParameter<IMessageSerializer>(),
                     new ResolvedParameter<IReflection>()));
 

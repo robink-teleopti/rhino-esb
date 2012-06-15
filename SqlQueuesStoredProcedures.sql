@@ -178,6 +178,7 @@ BEGIN
 	SET NOCOUNT ON;
 
     SELECT * FROM Queue.SubscriptionStorage WHERE ([Key]=@Key)
+    DELETE FROM Queue.SubscriptionStorage WHERE ([Key]=@Key)
 END
 
 

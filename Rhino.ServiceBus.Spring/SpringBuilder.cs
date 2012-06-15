@@ -235,6 +235,7 @@ namespace Rhino.ServiceBus.Spring
         {
             var busConfig = config.ConfigurationSection.Bus;
             applicationContext.RegisterSingleton<ISubscriptionStorage>(() => new SqlSubscriptionStorage(busConfig.Path,
+                                                                                  config.Endpoint.ToString(),
                                                                                   applicationContext.Get<IMessageSerializer>(),
                                                                                   applicationContext.Get<IReflection>()));
 

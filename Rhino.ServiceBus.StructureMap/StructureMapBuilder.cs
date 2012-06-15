@@ -227,7 +227,8 @@ namespace Rhino.ServiceBus.StructureMap
             {
                 var busConfig = config.ConfigurationSection.Bus;
                 c.For<ISubscriptionStorage>().Singleton().Use<SqlSubscriptionStorage>()
-                    .Ctor<string>().Is(busConfig.Path);
+                    .Ctor<string>("connectionString").Is(busConfig.Path)
+                    .Ctor<string>("localEndpoint").Is(config.Endpoint.ToString());
                 c.For<ITransport>().Singleton().Use<SqlQueuesTransport>()
                     .Ctor<int>("threadCount").Is(config.ThreadCount)
                     .Ctor<Uri>().Is(config.Endpoint)

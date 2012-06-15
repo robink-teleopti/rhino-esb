@@ -266,6 +266,7 @@ namespace Rhino.ServiceBus.Autofac
             var builder = new ContainerBuilder();
             builder.RegisterType<SqlSubscriptionStorage>()
                 .WithParameter("connectionString", busConfig.Path)
+                .WithParameter("localEndpoint",config.Endpoint.ToString())
                 .As<ISubscriptionStorage>()
                 .SingleInstance();
             builder.RegisterType<SqlQueuesTransport>()
