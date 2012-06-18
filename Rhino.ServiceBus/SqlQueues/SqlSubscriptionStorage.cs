@@ -214,8 +214,6 @@ namespace Rhino.ServiceBus.SqlQueues
 
                 var uri = new Uri(endpoint);
                 added = subscriptionsForType.Add(uri);
-                Debug.WriteLine("Added subscription for {0} on {1}",
-                                  type, uri);
                 logger.InfoFormat("Added subscription for {0} on {1}",
                                   type, uri);
             });

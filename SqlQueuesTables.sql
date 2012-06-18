@@ -1,3 +1,6 @@
+CREATE SCHEMA [Queue] AUTHORIZATION [dbo]
+GO
+
 CREATE TABLE [Queue].[Messages](
 	[MessageId] [int] IDENTITY(1,1) NOT NULL,
 	[QueueId] [int] NOT NULL,
