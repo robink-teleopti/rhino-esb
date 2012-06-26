@@ -1,59 +1,64 @@
-/****** Object:  StoredProcedure [Queue].[AddItem]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[AddItem]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[AddItem]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[AddItem]
 GO
 
-/****** Object:  StoredProcedure [Queue].[CreateQueueIfMissing]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[CreateQueueIfMissing]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[CreateQueueIfMissing]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[CreateQueueIfMissing]
 GO
 
-/****** Object:  StoredProcedure [Queue].[EnqueueMessage]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[EnqueueMessage]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[EnqueueMessage]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[EnqueueMessage]
 GO
 
-/****** Object:  StoredProcedure [Queue].[ExtendMessageLease]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[ExtendMessageLease]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[ExtendMessageLease]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[ExtendMessageLease]
 GO
 
-/****** Object:  StoredProcedure [Queue].[GetAndAddQueue]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[GetAndAddQueue]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[GetAndAddQueue]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[GetAndAddQueue]
 GO
 
-/****** Object:  StoredProcedure [Queue].[GetItemsByKey]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[GetItemsByKey]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[GetItemsByKey]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[GetItemsByKey]
 GO
 
-/****** Object:  StoredProcedure [Queue].[MoveMessage]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[MarkMessageAsReady]    Script Date: 06/26/2012 08:46:44 ******/
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[MarkMessageAsReady]') AND type in (N'P', N'PC'))
+DROP PROCEDURE [Queue].[MarkMessageAsReady]
+GO
+
+/****** Object:  StoredProcedure [Queue].[MoveMessage]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[MoveMessage]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[MoveMessage]
 GO
 
-/****** Object:  StoredProcedure [Queue].[PeekMessage]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[PeekMessage]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[PeekMessage]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[PeekMessage]
 GO
 
-/****** Object:  StoredProcedure [Queue].[PeekMessageById]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[PeekMessageById]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[PeekMessageById]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[PeekMessageById]
 GO
 
-/****** Object:  StoredProcedure [Queue].[RecieveMessage]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[RecieveMessage]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[RecieveMessage]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[RecieveMessage]
 GO
 
-/****** Object:  StoredProcedure [Queue].[RecieveMessages]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[RecieveMessages]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[RecieveMessages]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[RecieveMessages]
 GO
 
-/****** Object:  StoredProcedure [Queue].[RemoveItem]    Script Date: 06/14/2012 10:53:54 ******/
+/****** Object:  StoredProcedure [Queue].[RemoveItem]    Script Date: 06/26/2012 08:46:44 ******/
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[RemoveItem]') AND type in (N'P', N'PC'))
 DROP PROCEDURE [Queue].[RemoveItem]
 GO
@@ -186,6 +191,19 @@ END
 
 GO
 
+CREATE PROCEDURE [Queue].[MarkMessageAsReady]
+	@MessageId int
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+			UPDATE Queue.Messages SET Processed = 1 WHERE MessageId = @MessageId
+END
+
+
+
+GO
+
 CREATE PROCEDURE [Queue].[MoveMessage]
 	@Endpoint nvarchar(250),
 	@Queue nvarchar(50),
@@ -217,7 +235,7 @@ BEGIN
     
     EXEC Queue.GetAndAddQueue @Endpoint,@Queue,@Subqueue,@QueueId=@QueueId OUTPUT;
 	
-	SELECT TOP 1 * FROM Queue.Messages WHERE isnull(ExpiresAt,DATEADD(mi,1,GetDate())) > GetDate() AND Processed=0 AND ProcessingUntil<GetDate() ORDER BY CreatedAt ASC
+	SELECT TOP 1 * FROM Queue.Messages WHERE isnull(ExpiresAt,DATEADD(mi,1,GetDate())) > GetDate() AND Processed=0 AND ProcessingUntil<GetDate() AND QueueId = @QueueId ORDER BY CreatedAt ASC
 END
 
 
@@ -249,10 +267,10 @@ BEGIN
     EXEC Queue.GetAndAddQueue @Endpoint,@Queue,@Subqueue,@QueueId=@QueueId OUTPUT;
 	
 	DECLARE @MessageId int;
-	SELECT TOP 1 @MessageId = MessageId FROM Queue.Messages WHERE isnull(ExpiresAt,DATEADD(mi,1,GetDate())) > GetDate() AND Processed=0 AND ProcessingUntil<GetDate() ORDER BY CreatedAt ASC
+	SELECT TOP 1 @MessageId = MessageId FROM Queue.Messages WHERE isnull(ExpiresAt,DATEADD(mi,1,GetDate())) > GetDate() AND Processed=0 AND ProcessingUntil<GetDate() AND QueueId=@QueueId ORDER BY CreatedAt ASC
 	if (@MessageId is not null)
 		BEGIN
-			UPDATE Queue.Messages SET ProcessingUntil = DateAdd(mi,10,GetDate()),Processed=1 WHERE MessageId=@MessageId
+			UPDATE Queue.Messages SET ProcessingUntil = DateAdd(mi,1,GetDate()),ProcessedCount=ProcessedCount+1 WHERE MessageId=@MessageId
 			SELECT * FROM Queue.Messages WHERE MessageId=@MessageId
 		END
 	else
@@ -276,7 +294,7 @@ BEGIN
         
     EXEC Queue.GetAndAddQueue @Endpoint,@Queue,@Subqueue,@QueueId=@QueueId OUTPUT;
 	
-			UPDATE Queue.Messages SET ProcessingUntil = DateAdd(mi,10,GetDate())
+			UPDATE Queue.Messages SET ProcessingUntil = DateAdd(mi,10,GetDate()),ProcessedCount=ProcessedCount+1 WHERE QueueId = @QueueId
 			SELECT * FROM Queue.Messages WHERE QueueId = @QueueId
 END
 

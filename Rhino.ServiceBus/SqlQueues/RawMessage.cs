@@ -16,6 +16,7 @@ namespace Rhino.ServiceBus.SqlQueues
         public bool Processed { get; set; }
         public string Headers { get; set; }
         public byte[] Payload { get; set; }
+        public int ProcessedCount { get; set; }
 
         public Message ToMessage()
         {
@@ -25,7 +26,8 @@ namespace Rhino.ServiceBus.SqlQueues
                                   Id = MessageId,
                                   Queue = QueueName,
                                   SentAt = CreatedAt,
-                                  SubQueue = SubQueueName
+                                  SubQueue = SubQueueName,
+                                  ProcessedCount = ProcessedCount
                               };
             message.Headers = extractHeaders(Headers);
             return message;

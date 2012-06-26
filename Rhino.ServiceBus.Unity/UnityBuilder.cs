@@ -275,9 +275,7 @@ namespace Rhino.ServiceBus.Unity
                     new ResolvedParameter<IMessageSerializer>(),
                     new InjectionParameter<int>(config.ThreadCount),
                     new InjectionParameter<string>(busConfig.Path),
-                    new InjectionParameter<IsolationLevel>(config.IsolationLevel),
                     new InjectionParameter<int>(config.NumberOfRetries),
-                    new InjectionParameter<bool>(busConfig.EnablePerformanceCounters),
                     new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
 
             container.RegisterType<IMessageBuilder<SqlQueues.MessagePayload>, SqlQueuesMessageBuilder>(
@@ -314,7 +312,6 @@ namespace Rhino.ServiceBus.Unity
                     new InjectionParameter<MessageOwner[]>(oneWayConfig.MessageOwners),
                     new ResolvedParameter<IMessageSerializer>(),
                     new InjectionParameter<string>(busConfig.Path),
-                    new InjectionParameter<bool>(busConfig.EnablePerformanceCounters),
                     new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
         }
 

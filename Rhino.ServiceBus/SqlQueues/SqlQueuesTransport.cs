@@ -1,20 +1,15 @@
 using System;
 using System.Collections.Specialized;
-using System.Data;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.IO;
 using System.Threading;
-using System.Transactions;
 using System.Xml;
 using log4net;
-using Microsoft.Isam.Esent.Interop;
 using Rhino.ServiceBus.Impl;
 using Rhino.ServiceBus.Internal;
 using Rhino.ServiceBus.Transport;
 using Rhino.ServiceBus.Util;
-using IsolationLevel = System.Transactions.IsolationLevel;
-using Transaction = System.Transactions.Transaction;
 
 namespace Rhino.ServiceBus.SqlQueues
 {
@@ -31,9 +26,7 @@ namespace Rhino.ServiceBus.SqlQueues
         private readonly string queueName;
         private volatile bool shouldContinue;
         private bool haveStarted;
-        private readonly IsolationLevel queueIsolationLevel;
         private readonly int numberOfRetries;
-        private readonly bool enablePerformanceCounters;
         private readonly IMessageBuilder<MessagePayload> messageBuilder;
 
         [ThreadStatic]
@@ -48,20 +41,16 @@ namespace Rhino.ServiceBus.SqlQueues
             IMessageSerializer messageSerializer,
             int threadCount,
             string connectionString,
-            IsolationLevel queueIsolationLevel,
             int numberOfRetries,
-            bool enablePerformanceCounters,
             IMessageBuilder<MessagePayload> messageBuilder)
         {
             this.endpoint = endpoint;
-            this.queueIsolationLevel = queueIsolationLevel;
             this.numberOfRetries = numberOfRetries;
             this.messageBuilder = messageBuilder;
             this.endpointRouter = endpointRouter;
             this.messageSerializer = messageSerializer;
             this.threadCount = threadCount;
             this.connectionString = connectionString;
-            this.enablePerformanceCounters = enablePerformanceCounters;
 
             queueName = endpoint.GetQueueName();
 
@@ -70,7 +59,7 @@ namespace Rhino.ServiceBus.SqlQueues
             // This has to be the first subscriber to the transport events
             // in order to successfuly handle the errors semantics
             new ErrorAction(numberOfRetries).Init(this);
-            messageBuilder.Initialize(this.Endpoint);
+            messageBuilder.Initialize(Endpoint);
         }
 
         public void Dispose()
@@ -158,114 +147,173 @@ namespace Rhino.ServiceBus.SqlQueues
 
         private void ReceiveMessage(object context)
         {
+            int sleepTime = 1;
+            int iteration = 0;
             while (shouldContinue)
             {
-                using (var tx = _sqlQueueManager.BeginTransaction())
+                Thread.Sleep(sleepTime);
+                iteration++;
+                try
                 {
-                    try
+                    using (var tx = _sqlQueueManager.BeginTransaction())
                     {
-                        _sqlQueueManager.Peek(queueName);
+                        if (!_sqlQueueManager.Peek(queueName))
+                        {
+                            sleepTime = Math.Min(sleepTime * iteration * 80,5000);
+                            continue;
+                        }
+                        sleepTime = 1;
+                        iteration = 1;
+                        tx.Transaction.Commit();
                     }
-                    catch (TimeoutException)
-                    {
-                        logger.DebugFormat("Could not find a message on {0} during the timeout period",
-                                           endpoint);
-                        continue;
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        logger.DebugFormat("Shutting down the transport for {0} thread {1}", endpoint, context);
-                        return;
-                    }
-                    catch (SqlException e)
-                    {
-                        logger.Error(
-                            "An error occured while recieving a message, shutting down message processing thread", e);
-                        return;
-                    }
+                }
+                catch (TimeoutException)
+                {
+                    logger.DebugFormat("Could not find a message on {0} during the timeout period",
+                                       endpoint);
+                    continue;
+                }
+                catch (ObjectDisposedException)
+                {
+                    logger.DebugFormat("Shutting down the transport for {0} thread {1}", endpoint, context);
+                    return;
+                }
+                catch (SqlException e)
+                {
+                    logger.Error(
+                        "An error occured while recieving a message, shutting down message processing thread", e);
+                    return;
+                }
 
-                    if (shouldContinue == false)
-                        return;
+                if (shouldContinue == false)
+                    return;
 
-                    Message message;
-                    try
+                Message message;
+                try
+                {
+                    using (var tx = _sqlQueueManager.BeginTransaction())
                     {
                         message = _sqlQueueManager.Receive(queueName, TimeSpan.FromSeconds(10));
+                        tx.Transaction.Commit();
                     }
-                    catch (TimeoutException)
-                    {
-                        logger.DebugFormat("Could not find a message on {0} during the timeout period",
-                                           endpoint);
-                        continue;
-                    }
-                    catch (Exception e)
-                    {
-                        logger.Error(
-                            "An error occured while recieving a message, shutting down message processing thread",
-                            e);
-                        return;
-                    }
+                }
+                catch (TimeoutException)
+                {
+                    logger.DebugFormat("Could not find a message on {0} during the timeout period",
+                                       endpoint);
+                    continue;
+                }
+                catch (Exception e)
+                {
+                    logger.Error(
+                        "An error occured while recieving a message, shutting down message processing thread",
+                        e);
+                    return;
+                }
 
-                    try
+                if (message.ProcessedCount > numberOfRetries)
+                {
+                    Queue.MoveTo(SubQueue.Errors.ToString(), message);
+                    Queue.EnqueueDirectlyTo(SubQueue.Errors.ToString(), new MessagePayload
                     {
-                        var msgType = (MessageType) Enum.Parse(typeof (MessageType), message.Headers["type"]);
-                        logger.DebugFormat("Starting to handle message {0} of type {1} on {2}",
-                                           message.Id,
-                                           msgType,
-                                           endpoint);
-                        switch (msgType)
+                        Data = null,
+                        Headers = new NameValueCollection
                         {
-                            case MessageType.AdministrativeMessageMarker:
-                                ProcessMessage(tx.Transaction,
-                                               message,
-                                               AdministrativeMessageArrived,
-                                               AdministrativeMessageProcessingCompleted,
-                                               null, 
-                                               null);
-                                break;
-                            case MessageType.ShutDownMessageMarker:
-                                //ignoring this one
+                            {"correlation-id", message.Id.ToString()},
+                            {"retries", message.ProcessedCount.ToString(CultureInfo.InvariantCulture)}
+                        }
+                    });
+                    return;
+                }
+
+                var messageWithTimer = new MessageWithTimer {Message = message};
+                var messageProcessingTimer = new Timer(extendMessageLeaaseIfMessageStillInProgress, messageWithTimer,
+                                                       TimeSpan.FromSeconds(40), TimeSpan.FromMilliseconds(-1));
+                messageWithTimer.Timer = messageProcessingTimer;
+                
+                try
+                {
+                    var msgType = (MessageType) Enum.Parse(typeof (MessageType), message.Headers["type"]);
+                    logger.DebugFormat("Starting to handle message {0} of type {1} on {2}",
+                                       message.Id,
+                                       msgType,
+                                       endpoint);
+                    switch (msgType)
+                    {
+                        case MessageType.AdministrativeMessageMarker:
+                            ProcessMessage(message,
+                                           AdministrativeMessageArrived,
+                                           AdministrativeMessageProcessingCompleted,
+                                           null,
+                                           null);
+                            break;
+                        case MessageType.ShutDownMessageMarker:
+                            //ignoring this one
+                            using(var tx = _sqlQueueManager.BeginTransaction())
+                            {
+                                _sqlQueueManager.MarkMessageAsReady(message);
                                 tx.Transaction.Commit();
-                                break;
-                            case MessageType.TimeoutMessageMarker:
-                                var timeToSend = XmlConvert.ToDateTime(message.Headers["time-to-send"],
-                                                                       XmlDateTimeSerializationMode.Utc);
-                                if (timeToSend > DateTime.Now)
+                            }
+                            break;
+                        case MessageType.TimeoutMessageMarker:
+                            var timeToSend = XmlConvert.ToDateTime(message.Headers["time-to-send"],
+                                                                   XmlDateTimeSerializationMode.Utc);
+                            if (timeToSend > DateTime.Now)
+                            {
+                                timeout.Register(message);
+                                using (var tx = queue.BeginTransaction())
                                 {
-                                    timeout.Register(message);
                                     queue.MoveTo(SubQueue.Timeout.ToString(), message);
                                     tx.Transaction.Commit();
                                 }
-                                else
-                                {
-                                    ProcessMessage(tx.Transaction,
-                                                   message,
-                                                   MessageArrived,
-                                                   MessageProcessingCompleted,
-                                                   BeforeMessageTransactionCommit,
-                                                   BeforeMessageTransactionRollback);
-                                }
-                                break;
-                            default:
-                                ProcessMessage(tx.Transaction,
-                                               message,
+                            }
+                            else
+                            {
+                                ProcessMessage(message,
                                                MessageArrived,
                                                MessageProcessingCompleted,
                                                BeforeMessageTransactionCommit,
                                                BeforeMessageTransactionRollback);
-                                break;
-                        }
-                    }
-                    catch (Exception exception)
-                    {
-                        logger.Debug("Could not process message", exception);
+                            }
+                            break;
+                        default:
+                            ProcessMessage(message,
+                                           MessageArrived,
+                                           MessageProcessingCompleted,
+                                           BeforeMessageTransactionCommit,
+                                           BeforeMessageTransactionRollback);
+                            break;
                     }
                 }
+                catch (Exception exception)
+                {
+                    logger.Debug("Could not process message", exception);
+                }
+                message.FinishedProcessing = true;
+            }
+        }
+
+        private void extendMessageLeaaseIfMessageStillInProgress(object state)
+        {
+            var message = state as MessageWithTimer;
+            if (message == null) return;
+
+            if (message.Message.FinishedProcessing)
+            {
+                message.Timer.Dispose();
+                message.Timer = null;
+                return;
+            }
+
+            using (var tx = _sqlQueueManager.BeginTransaction())
+            {
+                _sqlQueueManager.ExtendMessageLease(message.Message);
+                message.Timer.Change(TimeSpan.FromMinutes(9.5), TimeSpan.FromMilliseconds(-1));
+                tx.Transaction.Commit();
             }
         }
 
         private void ProcessMessage(
-            IDbTransaction transaction,
             Message message,
             Func<CurrentMessageInformation, bool> messageRecieved,
             Action<CurrentMessageInformation, Exception> messageCompleted,
@@ -312,7 +360,7 @@ namespace Rhino.ServiceBus.SqlQueues
             }
             finally
             {
-                var messageHandlingCompletion = new SqlMessageHandlingCompletion(transaction, null, ex, messageCompleted, beforeTransactionCommit, beforeTransactionRollback, logger,
+                var messageHandlingCompletion = new SqlMessageHandlingCompletion(_sqlQueueManager, null, ex, messageCompleted, beforeTransactionCommit, beforeTransactionRollback, logger,
                                                                               MessageProcessingFailure, currentMessageInformation);
                 messageHandlingCompletion.HandleMessageCompletion();
                 currentMessageInformation = null;
@@ -427,5 +475,11 @@ namespace Rhino.ServiceBus.SqlQueues
         public event Action<CurrentMessageInformation> BeforeMessageTransactionCommit;
         public event Action<CurrentMessageInformation, Exception> AdministrativeMessageProcessingCompleted;
         public event Action Started;
+    }
+
+    public class MessageWithTimer
+    {
+        public Timer Timer { get; set; }
+        public Message Message { get; set; }
     }
 }

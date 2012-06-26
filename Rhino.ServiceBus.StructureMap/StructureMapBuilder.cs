@@ -232,10 +232,8 @@ namespace Rhino.ServiceBus.StructureMap
                 c.For<ITransport>().Singleton().Use<SqlQueuesTransport>()
                     .Ctor<int>("threadCount").Is(config.ThreadCount)
                     .Ctor<Uri>().Is(config.Endpoint)
-                    .Ctor<IsolationLevel>().Is(config.IsolationLevel)
                     .Ctor<int>("numberOfRetries").Is(config.NumberOfRetries)
-                    .Ctor<string>().Is(busConfig.Path)
-                    .Ctor<bool>().Is(busConfig.EnablePerformanceCounters);
+                    .Ctor<string>().Is(busConfig.Path);
                 c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
             });
         }
@@ -250,8 +248,7 @@ namespace Rhino.ServiceBus.StructureMap
                 c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
                 c.For<IOnewayBus>().Singleton().Use<SqlQueuesOneWayBus>()
                     .Ctor<MessageOwner[]>().Is(oneWayConfig.MessageOwners)
-                    .Ctor<string>().Is(busConfig.Path)
-                    .Ctor<bool>().Is(busConfig.EnablePerformanceCounters);
+                    .Ctor<string>().Is(busConfig.Path);
             });
         }
 

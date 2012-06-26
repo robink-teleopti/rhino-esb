@@ -11,5 +11,8 @@ namespace Rhino.ServiceBus.SqlQueues
         public string SubQueue { get; set; }
         public DateTime SentAt { get; set; }
         public NameValueCollection Headers { get; set; }
+
+        public bool FinishedProcessing { get; set; }
+        public int ProcessedCount { get; set; }
     }
 }

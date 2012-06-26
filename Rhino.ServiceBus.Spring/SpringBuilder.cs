@@ -244,9 +244,7 @@ namespace Rhino.ServiceBus.Spring
                                                                                                                                     applicationContext.Get<IMessageSerializer>(),
                                                                                                                                     config.ThreadCount,
                                                                                                                                     busConfig.Path,
-                                                                                                                                    config.IsolationLevel,
                                                                                                                                     config.NumberOfRetries,
-                                                                                                                                    busConfig.EnablePerformanceCounters,
                                                                                                                                     applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
 
             applicationContext.RegisterSingleton<IMessageBuilder<SqlQueues.MessagePayload>>(() => new SqlQueuesMessageBuilder(applicationContext.Get<IMessageSerializer>()));
@@ -258,7 +256,7 @@ namespace Rhino.ServiceBus.Spring
             var busConfig = config.ConfigurationSection.Bus;
 
             applicationContext.RegisterSingleton<IMessageBuilder<SqlQueues.MessagePayload>>(() => new SqlQueuesMessageBuilder(applicationContext.Get<IMessageSerializer>()));
-            applicationContext.RegisterSingleton<IOnewayBus>(() => new SqlQueuesOneWayBus(oneWayConfig.MessageOwners, applicationContext.Get<IMessageSerializer>(), busConfig.Path, busConfig.EnablePerformanceCounters, applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
+            applicationContext.RegisterSingleton<IOnewayBus>(() => new SqlQueuesOneWayBus(oneWayConfig.MessageOwners, applicationContext.Get<IMessageSerializer>(), busConfig.Path, applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
         }
 
         public void RegisterSecurity(byte[] key)

@@ -300,10 +300,8 @@ namespace Rhino.ServiceBus.Castle
                     {
                         threadCount = config.ThreadCount,
                         endpoint = config.Endpoint,
-                        queueIsolationLevel = config.IsolationLevel,
                         numberOfRetries = config.NumberOfRetries,
                         connectionString = busConfig.Path,
-                        enablePerformanceCounters = busConfig.EnablePerformanceCounters
                     }),
                 Component.For<IMessageBuilder<SqlQueues.MessagePayload>>()
                     .ImplementedBy<SqlQueuesMessageBuilder>()
@@ -326,7 +324,6 @@ namespace Rhino.ServiceBus.Castle
                         {
                             messageOwners = oneWayConfig.MessageOwners.ToArray(),
                             connectionString = busConfig.Path,
-                            enablePerformanceCounters = busConfig.EnablePerformanceCounters
                         })
                     );
         }

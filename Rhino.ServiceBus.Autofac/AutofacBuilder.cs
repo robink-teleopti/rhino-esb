@@ -272,10 +272,8 @@ namespace Rhino.ServiceBus.Autofac
             builder.RegisterType<SqlQueuesTransport>()
                 .WithParameter("threadCount", config.ThreadCount)
                 .WithParameter("endpoint", config.Endpoint)
-                .WithParameter("queueIsolationLevel", config.IsolationLevel)
                 .WithParameter("numberOfRetries", config.NumberOfRetries)
                 .WithParameter("connectionString", busConfig.Path)
-                .WithParameter("enablePerformanceCounters", busConfig.EnablePerformanceCounters)
                 .As<ITransport>()
                 .SingleInstance();
             builder.RegisterType<SqlQueuesMessageBuilder>()
@@ -295,7 +293,6 @@ namespace Rhino.ServiceBus.Autofac
             builder.RegisterType<SqlQueuesOneWayBus>()
                 .WithParameter("messageOwners", oneWayConfig.MessageOwners)
                 .WithParameter("connectionString", busConfig.Path)
-                .WithParameter("enablePerformanceCounters", busConfig.EnablePerformanceCounters)
                 .As<IOnewayBus>()
                 .SingleInstance();
             builder.Update(container);

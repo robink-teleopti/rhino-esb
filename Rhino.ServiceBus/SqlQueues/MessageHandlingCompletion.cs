@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Data;
 using log4net;
 using Rhino.ServiceBus.Impl;
 
@@ -7,20 +6,20 @@ namespace Rhino.ServiceBus.SqlQueues
 {
 	public class SqlMessageHandlingCompletion
 	{
-		private readonly IDbTransaction tx;
 		private readonly Action sendMessageBackToQueue;
 		private readonly Action<CurrentMessageInformation, Exception> messageCompleted;
         private readonly Action<CurrentMessageInformation> beforeTransactionCommit;
         private readonly Action<CurrentMessageInformation> beforeTransactionRollback;
 		private readonly ILog logger;
 		private readonly Action<CurrentMessageInformation, Exception> messageProcessingFailure;
-		private readonly CurrentMessageInformation currentMessageInformation;
+        private readonly CurrentMessageInformation currentMessageInformation;
+        private readonly SqlQueueManager sqlQueueManager;
 
 		private Exception exception;
 
-	    public SqlMessageHandlingCompletion(IDbTransaction tx, Action sendMessageBackToQueue, Exception exception, Action<CurrentMessageInformation, Exception> messageCompleted, Action<CurrentMessageInformation> beforeTransactionCommit, Action<CurrentMessageInformation> beforeTransactionRollback, ILog logger, Action<CurrentMessageInformation, Exception> messageProcessingFailure, CurrentMessageInformation currentMessageInformation)
-		{
-			this.tx = tx;
+	    public SqlMessageHandlingCompletion(SqlQueueManager sqlQueueManager, Action sendMessageBackToQueue, Exception exception, Action<CurrentMessageInformation, Exception> messageCompleted, Action<CurrentMessageInformation> beforeTransactionCommit, Action<CurrentMessageInformation> beforeTransactionRollback, ILog logger, Action<CurrentMessageInformation, Exception> messageProcessingFailure, CurrentMessageInformation currentMessageInformation)
+	    {
+	        this.sqlQueueManager = sqlQueueManager;
 			this.sendMessageBackToQueue = sendMessageBackToQueue;
 			this.exception = exception;
 			this.messageCompleted = messageCompleted;
@@ -33,16 +32,14 @@ namespace Rhino.ServiceBus.SqlQueues
 
 		public void HandleMessageCompletion()
 		{
-			var txDisposed = false;
-
 			try
 			{
-				if (SuccessfulCompletion(out txDisposed))
+				if (SuccessfulCompletion())
 					return;
 			}
 			finally
 			{
-				DisposeTransactionIfNotAlreadyDisposed(txDisposed);				
+				DisposeTransactionIfNotAlreadyDisposed();				
 			}
 
 			//error
@@ -87,17 +84,12 @@ namespace Rhino.ServiceBus.SqlQueues
 			}
 		}
 
-		private void DisposeTransactionIfNotAlreadyDisposed(bool txDisposed)
+		private void DisposeTransactionIfNotAlreadyDisposed()
 		{
 			try
 			{
-				if (txDisposed == false && tx != null)
-                {
                     if (beforeTransactionRollback != null)
                         beforeTransactionRollback(currentMessageInformation);
-					logger.Warn("Disposing transaction in error mode");
-					tx.Dispose();
-				}
 			}
 			catch (Exception e)
 			{
@@ -105,30 +97,30 @@ namespace Rhino.ServiceBus.SqlQueues
 			}
 		}
 
-		private bool SuccessfulCompletion(out bool txDisposed)
-		{
-			txDisposed = false;
-			if (exception != null)
-				return false;
-			try
-			{
-				if (tx != null)
-				{
-					if (beforeTransactionCommit != null)
-						beforeTransactionCommit(currentMessageInformation);
-					tx.Commit();
-					tx.Dispose();
-					txDisposed = true;
-				}
-				NotifyMessageCompleted();
-				return true;
-			}
-			catch (Exception e)
-			{
-				logger.Warn("Failed to complete transaction, moving to error mode", e);
-				exception = e;
-			}
-			return false;
-		}
+        private bool SuccessfulCompletion()
+        {
+            if (exception != null)
+                return false;
+            try
+            {
+                if (beforeTransactionCommit != null)
+                    beforeTransactionCommit(currentMessageInformation);
+
+                using (var tx = sqlQueueManager.BeginTransaction())
+                {
+                    sqlQueueManager.MarkMessageAsReady(((SqlQueueCurrentMessageInformation) currentMessageInformation).TransportMessage);
+                    tx.Transaction.Commit();
+                }
+
+                NotifyMessageCompleted();
+                return true;
+            }
+            catch (Exception e)
+            {
+                logger.Warn("Failed to complete transaction, moving to error mode", e);
+                exception = e;
+            }
+            return false;
+        }
 	}
 }

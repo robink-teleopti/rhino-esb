@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Data;
 using System.Data.SqlClient;
-using System.Threading;
 using Rhino.ServiceBus.Util;
 
 namespace Rhino.ServiceBus.SqlQueues
@@ -50,7 +49,7 @@ namespace Rhino.ServiceBus.SqlQueues
             return new SqlQueue(queueName, _connectionString, _endpoint);
         }
 
-        public void Peek(string queueName)
+        public bool Peek(string queueName)
         {
             using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
             {
@@ -61,19 +60,15 @@ namespace Rhino.ServiceBus.SqlQueues
                 command.Parameters.AddWithValue("@Queue", queueName);
                 command.Parameters.AddWithValue("@SubQueue", DBNull.Value);
 
-                var manualResetEvent = new ManualResetEvent(false);
-                while (true)
+                var reader = command.ExecuteReader();
+                if (reader.HasRows)
                 {
-                    var reader = command.ExecuteReader();
-                    if (reader.HasRows)
-                    {
-                        reader.Close();
-                        return;
-                    }
                     reader.Close();
-                    manualResetEvent.WaitOne(TimeSpan.FromSeconds(2));
+                    return true;
                 }
+                reader.Close();
             }
+            return false;
         }
 
         public Message Receive(string queueName, TimeSpan timeOut)
@@ -95,6 +90,7 @@ namespace Rhino.ServiceBus.SqlQueues
                 var queueIdIndex = reader.GetOrdinal("QueueId");
                 var createdAtIndex = reader.GetOrdinal("CreatedAt");
                 var processingUntilIndex = reader.GetOrdinal("ProcessingUntil");
+                var processedCountIndex = reader.GetOrdinal("ProcessedCount");
                 var expiresAtIndex = reader.GetOrdinal("ExpiresAt");
                 var processedIndex = reader.GetOrdinal("Processed");
                 var headersIndex = reader.GetOrdinal("Headers");
@@ -108,6 +104,7 @@ namespace Rhino.ServiceBus.SqlQueues
                                   MessageId = reader.GetInt32(messageIdIndex),
                                   Processed = reader.GetBoolean(processedIndex),
                                   ProcessingUntil = reader.GetDateTime(processingUntilIndex),
+                                  ProcessedCount = reader.GetInt32(processedCountIndex),
                                   QueueId = reader.GetInt32(queueIdIndex),
                                   QueueName = queueName,
                                   SubQueueName = null
@@ -128,36 +125,36 @@ namespace Rhino.ServiceBus.SqlQueues
         public void Send(Uri uri, MessagePayload payload)
         {
             SqlTransactionContext transactionToCommit = null;
-            if (SqlTransactionContext.Current==null)
+            if (SqlTransactionContext.Current == null)
             {
                 transactionToCommit = BeginTransaction();
             }
-                using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
-                {
-                    command.CommandText = "Queue.EnqueueMessage";
-                    command.CommandType = CommandType.StoredProcedure;
-                    command.Transaction = SqlTransactionContext.Current.Transaction;
-                    command.Parameters.AddWithValue("@Endpoint", uri.ToString());
-                    command.Parameters.AddWithValue("@Queue", uri.GetQueueName());
-                    command.Parameters.AddWithValue("@SubQueue", DBNull.Value);
+            using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
+            {
+                command.CommandText = "Queue.EnqueueMessage";
+                command.CommandType = CommandType.StoredProcedure;
+                command.Transaction = SqlTransactionContext.Current.Transaction;
+                command.Parameters.AddWithValue("@Endpoint", uri.ToString());
+                command.Parameters.AddWithValue("@Queue", uri.GetQueueName());
+                command.Parameters.AddWithValue("@SubQueue", DBNull.Value);
 
-                    var contents = new RawMessage
-                                       {
-                                           CreatedAt = payload.SentAt,
-                                           Payload = payload.Data,
-                                           ProcessingUntil = payload.SentAt
-                                       };
-                    contents.SetHeaders(payload.Headers);
+                var contents = new RawMessage
+                                   {
+                                       CreatedAt = payload.SentAt,
+                                       Payload = payload.Data,
+                                       ProcessingUntil = payload.SentAt
+                                   };
+                contents.SetHeaders(payload.Headers);
 
-                    command.Parameters.AddWithValue("@CreatedAt", contents.CreatedAt);
-                    command.Parameters.AddWithValue("@Payload", contents.Payload);
-                    command.Parameters.AddWithValue("@ExpiresAt", DBNull.Value);
-                    command.Parameters.AddWithValue("@ProcessingUntil", contents.CreatedAt);
-                    command.Parameters.AddWithValue("@Headers", contents.Headers);
+                command.Parameters.AddWithValue("@CreatedAt", contents.CreatedAt);
+                command.Parameters.AddWithValue("@Payload", contents.Payload);
+                command.Parameters.AddWithValue("@ExpiresAt", DBNull.Value);
+                command.Parameters.AddWithValue("@ProcessingUntil", contents.CreatedAt);
+                command.Parameters.AddWithValue("@Headers", contents.Headers);
 
-                    command.ExecuteNonQuery();
-                }
-            if (transactionToCommit!=null)
+                command.ExecuteNonQuery();
+            }
+            if (transactionToCommit != null)
             {
                 transactionToCommit.Transaction.Commit();
                 transactionToCommit.Dispose();
@@ -167,6 +164,32 @@ namespace Rhino.ServiceBus.SqlQueues
         public SqlTransactionContext BeginTransaction()
         {
             return new SqlTransactionContext(new SqlConnection(_connectionString));
+        }
+
+        public void ExtendMessageLease(Message message)
+        {
+            using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
+            {
+                command.CommandText = "Queue.ExtendMessageLease";
+                command.CommandType = CommandType.StoredProcedure;
+                command.Transaction = SqlTransactionContext.Current.Transaction;
+                command.Parameters.AddWithValue("@MessageId", message.Id);
+                
+                command.ExecuteNonQuery();
+            }
+        }
+
+        public void MarkMessageAsReady(Message message)
+        {
+            using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
+            {
+                command.CommandText = "Queue.MarkMessageAsReady";
+                command.CommandType = CommandType.StoredProcedure;
+                command.Transaction = SqlTransactionContext.Current.Transaction;
+                command.Parameters.AddWithValue("@MessageId", message.Id);
+
+                command.ExecuteNonQuery();
+            }
         }
     }
 
