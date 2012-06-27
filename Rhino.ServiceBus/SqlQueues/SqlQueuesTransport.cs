@@ -213,17 +213,26 @@ namespace Rhino.ServiceBus.SqlQueues
 
                 if (message.ProcessedCount > numberOfRetries)
                 {
-                    Queue.MoveTo(SubQueue.Errors.ToString(), message);
-                    Queue.EnqueueDirectlyTo(SubQueue.Errors.ToString(), new MessagePayload
+                    using (var tx = _sqlQueueManager.BeginTransaction())
                     {
-                        Data = null,
-                        Headers = new NameValueCollection
-                        {
-                            {"correlation-id", message.Id.ToString()},
-                            {"retries", message.ProcessedCount.ToString(CultureInfo.InvariantCulture)}
-                        }
-                    });
-                    return;
+                        Queue.MoveTo(SubQueue.Errors.ToString(), message);
+                        Queue.EnqueueDirectlyTo(SubQueue.Errors.ToString(), new MessagePayload
+                                                                                {
+                                                                                    SentAt = DateTime.UtcNow,
+                                                                                    Data = null,
+                                                                                    Headers = new NameValueCollection
+                                                                                                  {
+                                                                                                      {
+                                                                                                          "correlation-id", message.Id.ToString()
+                                                                                                      },
+                                                                                                      {
+                                                                                                          "retries", message.ProcessedCount.ToString(CultureInfo.InvariantCulture)
+                                                                                                      }
+                                                                                                  }
+                                                                                });
+                        tx.Transaction.Commit();
+                    }
+                    continue;
                 }
 
                 var messageWithTimer = new MessageWithTimer {Message = message};
