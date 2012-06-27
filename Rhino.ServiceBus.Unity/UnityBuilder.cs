@@ -259,10 +259,14 @@ namespace Rhino.ServiceBus.Unity
         public void RegisterSqlQueuesTransport()
         {
             var busConfig = config.ConfigurationSection.Bus;
-            container.RegisterType<ISubscriptionStorage, SqlSubscriptionStorage>(
+
+            container.RegisterType<IStorage, SqlStorage>(
+                new ContainerControlledLifetimeManager(),new InjectionConstructor(
+                    new InjectionParameter<string>(busConfig.ConnectionString)));
+            container.RegisterType<ISubscriptionStorage, GenericSubscriptionStorage>(
                 new ContainerControlledLifetimeManager(),
                 new InjectionConstructor(
-                    new InjectionParameter<string>(busConfig.Path),
+                    new ResolvedParameter<IStorage>(),
                     new InjectionParameter<string>(config.Endpoint.ToString()),
                     new ResolvedParameter<IMessageSerializer>(),
                     new ResolvedParameter<IReflection>()));
@@ -274,7 +278,7 @@ namespace Rhino.ServiceBus.Unity
                     new ResolvedParameter<IEndpointRouter>(),
                     new ResolvedParameter<IMessageSerializer>(),
                     new InjectionParameter<int>(config.ThreadCount),
-                    new InjectionParameter<string>(busConfig.Path),
+                    new InjectionParameter<string>(busConfig.ConnectionString),
                     new InjectionParameter<int>(config.NumberOfRetries),
                     new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
 
@@ -311,7 +315,7 @@ namespace Rhino.ServiceBus.Unity
                 new InjectionConstructor(
                     new InjectionParameter<MessageOwner[]>(oneWayConfig.MessageOwners),
                     new ResolvedParameter<IMessageSerializer>(),
-                    new InjectionParameter<string>(busConfig.Path),
+                    new InjectionParameter<string>(busConfig.ConnectionString),
                     new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
         }
 

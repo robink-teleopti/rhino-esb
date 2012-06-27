@@ -264,8 +264,11 @@ namespace Rhino.ServiceBus.Autofac
         {
             var busConfig = config.ConfigurationSection.Bus;
             var builder = new ContainerBuilder();
-            builder.RegisterType<SqlSubscriptionStorage>()
-                .WithParameter("connectionString", busConfig.Path)
+            builder.RegisterType<SqlStorage>()
+                .As<IStorage>()
+                .WithParameter("connectionString",busConfig.ConnectionString)
+                .SingleInstance();
+            builder.RegisterType<GenericSubscriptionStorage>()
                 .WithParameter("localEndpoint",config.Endpoint.ToString())
                 .As<ISubscriptionStorage>()
                 .SingleInstance();
@@ -273,7 +276,7 @@ namespace Rhino.ServiceBus.Autofac
                 .WithParameter("threadCount", config.ThreadCount)
                 .WithParameter("endpoint", config.Endpoint)
                 .WithParameter("numberOfRetries", config.NumberOfRetries)
-                .WithParameter("connectionString", busConfig.Path)
+                .WithParameter("connectionString", busConfig.ConnectionString)
                 .As<ITransport>()
                 .SingleInstance();
             builder.RegisterType<SqlQueuesMessageBuilder>()
@@ -292,7 +295,7 @@ namespace Rhino.ServiceBus.Autofac
                 .SingleInstance();
             builder.RegisterType<SqlQueuesOneWayBus>()
                 .WithParameter("messageOwners", oneWayConfig.MessageOwners)
-                .WithParameter("connectionString", busConfig.Path)
+                .WithParameter("connectionString", busConfig.ConnectionString)
                 .As<IOnewayBus>()
                 .SingleInstance();
             builder.Update(container);
