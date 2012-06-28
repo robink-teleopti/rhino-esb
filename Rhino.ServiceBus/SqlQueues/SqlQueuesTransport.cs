@@ -159,7 +159,12 @@ namespace Rhino.ServiceBus.SqlQueues
                     {
                         if (!_sqlQueueManager.Peek(queueName))
                         {
-                            sleepTime = Math.Min(sleepTime * iteration * 80,5000);
+                            var currentSleepTime = sleepTime*iteration*80;
+                            if (currentSleepTime > 5000)
+                            {
+                                iteration--;
+                            }
+                            sleepTime = currentSleepTime;
                             continue;
                         }
                         sleepTime = 1;
