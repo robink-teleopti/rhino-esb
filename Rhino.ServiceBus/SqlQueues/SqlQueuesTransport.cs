@@ -28,6 +28,7 @@ namespace Rhino.ServiceBus.SqlQueues
         private bool haveStarted;
         private readonly int numberOfRetries;
         private readonly IMessageBuilder<MessagePayload> messageBuilder;
+        private const int SleepMax = 5000;
 
         [ThreadStatic]
         private static SqlQueueCurrentMessageInformation currentMessageInformation;
@@ -148,27 +149,20 @@ namespace Rhino.ServiceBus.SqlQueues
         private void ReceiveMessage(object context)
         {
             int sleepTime = 1;
-            int iteration = 0;
             while (shouldContinue)
             {
                 Thread.Sleep(sleepTime);
-                iteration++;
                 try
                 {
                     using (var tx = _sqlQueueManager.BeginTransaction())
                     {
                         if (!_sqlQueueManager.Peek(queueName))
                         {
-                            var currentSleepTime = sleepTime*iteration*80;
-                            if (currentSleepTime > 5000)
-                            {
-                                iteration--;
-                            }
-                            sleepTime = currentSleepTime;
+                            sleepTime += 100;
+                            sleepTime = Math.Min(sleepTime, SleepMax);
                             continue;
                         }
                         sleepTime = 1;
-                        iteration = 1;
                         tx.Transaction.Commit();
                     }
                 }
