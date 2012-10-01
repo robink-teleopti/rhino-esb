@@ -226,14 +226,15 @@ namespace Rhino.ServiceBus.StructureMap
             container.Configure(c =>
             {
                 var busConfig = config.ConfigurationSection.Bus;
-                c.For<ISubscriptionStorage>().Singleton().Use<SqlSubscriptionStorage>()
-                    .Ctor<string>("connectionString").Is(busConfig.Path)
+                c.For<IStorage>().Singleton().Use<SqlStorage>()
+                    .Ctor<string>("connectionString").Is(busConfig.ConnectionString);
+                c.For<ISubscriptionStorage>().Singleton().Use<GenericSubscriptionStorage>()
                     .Ctor<string>("localEndpoint").Is(config.Endpoint.ToString());
                 c.For<ITransport>().Singleton().Use<SqlQueuesTransport>()
                     .Ctor<int>("threadCount").Is(config.ThreadCount)
                     .Ctor<Uri>().Is(config.Endpoint)
                     .Ctor<int>("numberOfRetries").Is(config.NumberOfRetries)
-                    .Ctor<string>().Is(busConfig.Path);
+                    .Ctor<string>().Is(busConfig.ConnectionString);
                 c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
             });
         }
@@ -248,7 +249,7 @@ namespace Rhino.ServiceBus.StructureMap
                 c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
                 c.For<IOnewayBus>().Singleton().Use<SqlQueuesOneWayBus>()
                     .Ctor<MessageOwner[]>().Is(oneWayConfig.MessageOwners)
-                    .Ctor<string>().Is(busConfig.Path);
+                    .Ctor<string>().Is(busConfig.ConnectionString);
             });
         }
 

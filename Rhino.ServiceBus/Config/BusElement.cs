@@ -67,6 +67,12 @@ namespace Rhino.ServiceBus.Config
             get { return this["path"] as string; }
             set { this["path"] = value; }
         }
+
+        public string ConnectionString
+        {
+            get { return this["connectionString"] as string; }
+            set { this["connectionString"] = value; }
+        }
         
         private string BasePath
         {
@@ -109,6 +115,7 @@ namespace Rhino.ServiceBus.Config
             Properties.Add(new ConfigurationProperty("loadBalancerEndpoint", typeof(string), null));
             Properties.Add(new ConfigurationProperty("name", typeof(string), null));
             Properties.Add(new ConfigurationProperty("path", typeof(string), null));
+            Properties.Add(new ConfigurationProperty("connectionString", typeof(string), null));
             Properties.Add(new ConfigurationProperty("enablePerformanceCounters", typeof(bool), false));
         }
     }

@@ -285,12 +285,14 @@ namespace Rhino.ServiceBus.Castle
         {
             var busConfig = config.ConfigurationSection.Bus;
             container.Register(
+                Component.For<IStorage>().ImplementedBy<SqlStorage>().LifeStyle.Is(LifestyleType.Singleton).DependsOn(
+                    new {connectionString = busConfig.ConnectionString}));
+            container.Register(
                 Component.For<ISubscriptionStorage>()
                     .LifeStyle.Is(LifestyleType.Singleton)
-                    .ImplementedBy(typeof(SqlSubscriptionStorage))
+                    .ImplementedBy(typeof(GenericSubscriptionStorage))
                     .DependsOn(new
                     {
-                        connectionString = busConfig.Path,
                         localEndpoint = config.Endpoint.ToString()
                     }),
                 Component.For<ITransport>()
@@ -301,7 +303,7 @@ namespace Rhino.ServiceBus.Castle
                         threadCount = config.ThreadCount,
                         endpoint = config.Endpoint,
                         numberOfRetries = config.NumberOfRetries,
-                        connectionString = busConfig.Path,
+                        connectionString = busConfig.ConnectionString,
                     }),
                 Component.For<IMessageBuilder<SqlQueues.MessagePayload>>()
                     .ImplementedBy<SqlQueuesMessageBuilder>()
@@ -323,7 +325,7 @@ namespace Rhino.ServiceBus.Castle
                         .DependsOn(new
                         {
                             messageOwners = oneWayConfig.MessageOwners.ToArray(),
-                            connectionString = busConfig.Path,
+                            connectionString = busConfig.ConnectionString,
                         })
                     );
         }

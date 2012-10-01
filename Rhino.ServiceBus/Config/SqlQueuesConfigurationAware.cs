@@ -1,8 +1,6 @@
 using System;
 using System.Configuration;
 using Rhino.ServiceBus.Impl;
-using Rhino.ServiceBus.Internal;
-using Rhino.ServiceBus.SqlQueues;
 
 namespace Rhino.ServiceBus.Config
 {
@@ -24,9 +22,9 @@ namespace Rhino.ServiceBus.Config
                 throw new ConfigurationErrorsException(
                     "Could not find attribute 'name' in node 'bus' in configuration");
 
-            if (string.IsNullOrEmpty(busConfigSection.Path))
+            if (string.IsNullOrEmpty(busConfigSection.ConnectionString))
                 throw new ConfigurationErrorsException(
-                    "Could not find attribute 'path' in node 'bus' in configuration");
+                    "Could not find attribute 'connectionString' in node 'bus' in configuration");
 
             builder.RegisterSqlQueuesTransport();
         }

@@ -234,7 +234,8 @@ namespace Rhino.ServiceBus.Spring
         public void RegisterSqlQueuesTransport()
         {
             var busConfig = config.ConfigurationSection.Bus;
-            applicationContext.RegisterSingleton<ISubscriptionStorage>(() => new SqlSubscriptionStorage(busConfig.Path,
+            applicationContext.RegisterSingleton<IStorage>(() => new SqlStorage(busConfig.ConnectionString));
+            applicationContext.RegisterSingleton<ISubscriptionStorage>(() => new GenericSubscriptionStorage(applicationContext.Get<IStorage>(),
                                                                                   config.Endpoint.ToString(),
                                                                                   applicationContext.Get<IMessageSerializer>(),
                                                                                   applicationContext.Get<IReflection>()));
@@ -243,7 +244,7 @@ namespace Rhino.ServiceBus.Spring
                                                                                                                                     applicationContext.Get<IEndpointRouter>(),
                                                                                                                                     applicationContext.Get<IMessageSerializer>(),
                                                                                                                                     config.ThreadCount,
-                                                                                                                                    busConfig.Path,
+                                                                                                                                    busConfig.ConnectionString,
                                                                                                                                     config.NumberOfRetries,
                                                                                                                                     applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
 
@@ -256,7 +257,7 @@ namespace Rhino.ServiceBus.Spring
             var busConfig = config.ConfigurationSection.Bus;
 
             applicationContext.RegisterSingleton<IMessageBuilder<SqlQueues.MessagePayload>>(() => new SqlQueuesMessageBuilder(applicationContext.Get<IMessageSerializer>()));
-            applicationContext.RegisterSingleton<IOnewayBus>(() => new SqlQueuesOneWayBus(oneWayConfig.MessageOwners, applicationContext.Get<IMessageSerializer>(), busConfig.Path, applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
+            applicationContext.RegisterSingleton<IOnewayBus>(() => new SqlQueuesOneWayBus(oneWayConfig.MessageOwners, applicationContext.Get<IMessageSerializer>(), busConfig.ConnectionString, applicationContext.Get<IMessageBuilder<SqlQueues.MessagePayload>>()));
         }
 
         public void RegisterSecurity(byte[] key)

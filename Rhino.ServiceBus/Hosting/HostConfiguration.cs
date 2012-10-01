@@ -14,6 +14,7 @@ namespace Rhino.ServiceBus.Hosting
         private string SecurityKey { get; set; }
         protected string LogEndpoint { get; set; }
         private string Path { get; set; }
+        private string ConnectionString { get; set; }
         private bool EnablePerformanceCounter { get; set; }
         private IDictionary<string, HostConfigMessageEndpoint> Messages { get; set; }
 
@@ -78,6 +79,12 @@ namespace Rhino.ServiceBus.Hosting
             return this;
         }
 
+        public HostConfiguration UseConnectionString(string connectionString)
+        {
+            ConnectionString = connectionString;
+            return this;
+        }
+
         public HostConfiguration EnablePerformanceCounters()
         {
             EnablePerformanceCounter = true;
@@ -110,6 +117,7 @@ namespace Rhino.ServiceBus.Hosting
             config.Bus.LogEndpoint = LogEndpoint;
             config.Bus.Transactional = Transactional.ToString();
             config.Bus.Path = Path;
+            config.Bus.ConnectionString = ConnectionString;
             config.Bus.EnablePerformanceCounters = EnablePerformanceCounter;
             config.Security.Key = SecurityKey;
             foreach (var message in Messages)
@@ -123,7 +131,6 @@ namespace Rhino.ServiceBus.Hosting
             }
             return config;
         }
-
 
         private class HostConfigMessageEndpoint {
           public string Endpoint {

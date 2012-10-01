@@ -28,6 +28,7 @@ namespace Rhino.ServiceBus.SqlQueues
         private bool haveStarted;
         private readonly int numberOfRetries;
         private readonly IMessageBuilder<MessagePayload> messageBuilder;
+        private const int SleepMax = 5000;
 
         [ThreadStatic]
         private static SqlQueueCurrentMessageInformation currentMessageInformation;
@@ -148,22 +149,20 @@ namespace Rhino.ServiceBus.SqlQueues
         private void ReceiveMessage(object context)
         {
             int sleepTime = 1;
-            int iteration = 0;
             while (shouldContinue)
             {
                 Thread.Sleep(sleepTime);
-                iteration++;
                 try
                 {
                     using (var tx = _sqlQueueManager.BeginTransaction())
                     {
                         if (!_sqlQueueManager.Peek(queueName))
                         {
-                            sleepTime = Math.Min(sleepTime * iteration * 80,5000);
+                            sleepTime += 100;
+                            sleepTime = Math.Min(sleepTime, SleepMax);
                             continue;
                         }
                         sleepTime = 1;
-                        iteration = 1;
                         tx.Transaction.Commit();
                     }
                 }
@@ -213,17 +212,26 @@ namespace Rhino.ServiceBus.SqlQueues
 
                 if (message.ProcessedCount > numberOfRetries)
                 {
-                    Queue.MoveTo(SubQueue.Errors.ToString(), message);
-                    Queue.EnqueueDirectlyTo(SubQueue.Errors.ToString(), new MessagePayload
+                    using (var tx = _sqlQueueManager.BeginTransaction())
                     {
-                        Data = null,
-                        Headers = new NameValueCollection
-                        {
-                            {"correlation-id", message.Id.ToString()},
-                            {"retries", message.ProcessedCount.ToString(CultureInfo.InvariantCulture)}
-                        }
-                    });
-                    return;
+                        Queue.MoveTo(SubQueue.Errors.ToString(), message);
+                        Queue.EnqueueDirectlyTo(SubQueue.Errors.ToString(), new MessagePayload
+                                                                                {
+                                                                                    SentAt = DateTime.UtcNow,
+                                                                                    Data = null,
+                                                                                    Headers = new NameValueCollection
+                                                                                                  {
+                                                                                                      {
+                                                                                                          "correlation-id", message.Id.ToString()
+                                                                                                      },
+                                                                                                      {
+                                                                                                          "retries", message.ProcessedCount.ToString(CultureInfo.InvariantCulture)
+                                                                                                      }
+                                                                                                  }
+                                                                                });
+                        tx.Transaction.Commit();
+                    }
+                    continue;
                 }
 
                 var messageWithTimer = new MessageWithTimer {Message = message};
