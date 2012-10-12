@@ -1,5 +1,6 @@
 using System;
 using System.Configuration;
+using Rhino.ServiceBus.Hosting;
 using Rhino.ServiceBus.Impl;
 
 namespace Rhino.ServiceBus.Config
@@ -22,9 +23,9 @@ namespace Rhino.ServiceBus.Config
                 throw new ConfigurationErrorsException(
                     "Could not find attribute 'name' in node 'bus' in configuration");
 
-            if (string.IsNullOrEmpty(busConfigSection.ConnectionString))
+            if (string.IsNullOrEmpty(DefaultHost.QueueConnectionString))
                 throw new ConfigurationErrorsException(
-                    "Could not find attribute 'connectionString' in node 'bus' in configuration");
+                    "Could not find connection string QueueConnection in application configuration file");
 
             builder.RegisterSqlQueuesTransport();
         }

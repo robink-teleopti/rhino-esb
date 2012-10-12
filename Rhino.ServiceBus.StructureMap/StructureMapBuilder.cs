@@ -1,10 +1,12 @@
 using System;
+using System.Configuration;
 using System.Linq;
 using System.Transactions;
 using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
 using Rhino.ServiceBus.DataStructures;
+using Rhino.ServiceBus.Hosting;
 using Rhino.ServiceBus.Impl;
 using Rhino.ServiceBus.Internal;
 using Rhino.ServiceBus.LoadBalancer;
@@ -224,32 +226,33 @@ namespace Rhino.ServiceBus.StructureMap
         public void RegisterSqlQueuesTransport()
         {
             container.Configure(c =>
-            {
-                var busConfig = config.ConfigurationSection.Bus;
-                c.For<IStorage>().Singleton().Use<SqlStorage>()
-                    .Ctor<string>("connectionString").Is(busConfig.ConnectionString);
-                c.For<ISubscriptionStorage>().Singleton().Use<GenericSubscriptionStorage>()
-                    .Ctor<string>("localEndpoint").Is(config.Endpoint.ToString());
-                c.For<ITransport>().Singleton().Use<SqlQueuesTransport>()
-                    .Ctor<int>("threadCount").Is(config.ThreadCount)
-                    .Ctor<Uri>().Is(config.Endpoint)
-                    .Ctor<int>("numberOfRetries").Is(config.NumberOfRetries)
-                    .Ctor<string>().Is(busConfig.ConnectionString);
-                c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
-            });
+                                    {
+                                        var connectionString = DefaultHost.QueueConnectionString;
+                                        c.For<IStorage>().Singleton().Use<SqlStorage>()
+                                            .Ctor<string>("connectionString").Is(connectionString);
+                                        c.For<ISubscriptionStorage>().Singleton().Use<GenericSubscriptionStorage>()
+                                            .Ctor<string>("localEndpoint").Is(config.Endpoint.ToString());
+                                        c.For<ITransport>().Singleton().Use<SqlQueuesTransport>()
+                                            .Ctor<int>("threadCount").Is(config.ThreadCount)
+                                            .Ctor<Uri>().Is(config.Endpoint)
+                                            .Ctor<int>("numberOfRetries").Is(config.NumberOfRetries)
+                                            .Ctor<string>().Is(connectionString);
+                                        c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use
+                                            <SqlQueuesMessageBuilder>();
+                                    });
         }
 
         public void RegisterSqlQueuesOneWay()
         {
             var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
-            var busConfig = config.ConfigurationSection.Bus;
+            var connectionString = DefaultHost.QueueConnectionString;
 
             container.Configure(c =>
             {
                 c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use<SqlQueuesMessageBuilder>();
                 c.For<IOnewayBus>().Singleton().Use<SqlQueuesOneWayBus>()
                     .Ctor<MessageOwner[]>().Is(oneWayConfig.MessageOwners)
-                    .Ctor<string>().Is(busConfig.ConnectionString);
+                    .Ctor<string>().Is(connectionString);
             });
         }
 

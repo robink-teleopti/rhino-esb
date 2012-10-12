@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using Autofac;
 using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
 using Rhino.ServiceBus.DataStructures;
+using Rhino.ServiceBus.Hosting;
 using Rhino.ServiceBus.Impl;
 using Rhino.ServiceBus.Internal;
 using Rhino.ServiceBus.LoadBalancer;
@@ -262,11 +264,11 @@ namespace Rhino.ServiceBus.Autofac
 
         public void RegisterSqlQueuesTransport()
         {
-            var busConfig = config.ConfigurationSection.Bus;
+            var connectionString = DefaultHost.QueueConnectionString;
             var builder = new ContainerBuilder();
             builder.RegisterType<SqlStorage>()
                 .As<IStorage>()
-                .WithParameter("connectionString",busConfig.ConnectionString)
+                .WithParameter("connectionString",connectionString)
                 .SingleInstance();
             builder.RegisterType<GenericSubscriptionStorage>()
                 .WithParameter("localEndpoint",config.Endpoint.ToString())
@@ -276,7 +278,7 @@ namespace Rhino.ServiceBus.Autofac
                 .WithParameter("threadCount", config.ThreadCount)
                 .WithParameter("endpoint", config.Endpoint)
                 .WithParameter("numberOfRetries", config.NumberOfRetries)
-                .WithParameter("connectionString", busConfig.ConnectionString)
+                .WithParameter("connectionString", connectionString)
                 .As<ITransport>()
                 .SingleInstance();
             builder.RegisterType<SqlQueuesMessageBuilder>()
@@ -289,13 +291,13 @@ namespace Rhino.ServiceBus.Autofac
         {
             var builder = new ContainerBuilder();
             var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
-            var busConfig = config.ConfigurationSection.Bus;
+            var connectionString = DefaultHost.QueueConnectionString;
             builder.RegisterType<SqlQueuesMessageBuilder>()
                 .As<IMessageBuilder<SqlQueues.MessagePayload>>()
                 .SingleInstance();
             builder.RegisterType<SqlQueuesOneWayBus>()
                 .WithParameter("messageOwners", oneWayConfig.MessageOwners)
-                .WithParameter("connectionString", busConfig.ConnectionString)
+                .WithParameter("connectionString", connectionString)
                 .As<IOnewayBus>()
                 .SingleInstance();
             builder.Update(container);

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Configuration;
 using System.Linq;
 using System.Transactions;
 using Microsoft.Practices.Unity;
@@ -6,6 +7,7 @@ using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
 using Rhino.ServiceBus.DataStructures;
+using Rhino.ServiceBus.Hosting;
 using Rhino.ServiceBus.Impl;
 using Rhino.ServiceBus.Internal;
 using Rhino.ServiceBus.LoadBalancer;
@@ -258,11 +260,10 @@ namespace Rhino.ServiceBus.Unity
 
         public void RegisterSqlQueuesTransport()
         {
-            var busConfig = config.ConfigurationSection.Bus;
-
+            var connectionString = DefaultHost.QueueConnectionString;
             container.RegisterType<IStorage, SqlStorage>(
                 new ContainerControlledLifetimeManager(),new InjectionConstructor(
-                    new InjectionParameter<string>(busConfig.ConnectionString)));
+                    new InjectionParameter<string>(connectionString)));
             container.RegisterType<ISubscriptionStorage, GenericSubscriptionStorage>(
                 new ContainerControlledLifetimeManager(),
                 new InjectionConstructor(
@@ -278,7 +279,7 @@ namespace Rhino.ServiceBus.Unity
                     new ResolvedParameter<IEndpointRouter>(),
                     new ResolvedParameter<IMessageSerializer>(),
                     new InjectionParameter<int>(config.ThreadCount),
-                    new InjectionParameter<string>(busConfig.ConnectionString),
+                    new InjectionParameter<string>(connectionString),
                     new InjectionParameter<int>(config.NumberOfRetries),
                     new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
 
@@ -306,7 +307,7 @@ namespace Rhino.ServiceBus.Unity
         public void RegisterSqlQueuesOneWay()
         {
             var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
-            var busConfig = config.ConfigurationSection.Bus;
+            var connectionString = DefaultHost.QueueConnectionString;
 
             container.RegisterType<IMessageBuilder<SqlQueues.MessagePayload>, SqlQueuesMessageBuilder>(
                 new ContainerControlledLifetimeManager());
@@ -315,7 +316,7 @@ namespace Rhino.ServiceBus.Unity
                 new InjectionConstructor(
                     new InjectionParameter<MessageOwner[]>(oneWayConfig.MessageOwners),
                     new ResolvedParameter<IMessageSerializer>(),
-                    new InjectionParameter<string>(busConfig.ConnectionString),
+                    new InjectionParameter<string>(connectionString),
                     new ResolvedParameter<IMessageBuilder<SqlQueues.MessagePayload>>()));
         }
 
