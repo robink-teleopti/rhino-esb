@@ -64,6 +64,7 @@ namespace Rhino.ServiceBus.SqlQueues
                     command.Transaction = context.Transaction;
                     command.CommandText = "Queue.RemoveItem";
                     command.CommandType = CommandType.StoredProcedure;
+                	command.Parameters.AddWithValue("@Id", -1);
                     command.Parameters.AddWithValue("@Key", key);
                     foreach (var msgId in messageIds)
                     {

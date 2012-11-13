@@ -91,7 +91,6 @@ namespace Rhino.ServiceBus.SqlQueues
                 var createdAtIndex = reader.GetOrdinal("CreatedAt");
                 var processingUntilIndex = reader.GetOrdinal("ProcessingUntil");
                 var processedCountIndex = reader.GetOrdinal("ProcessedCount");
-                var expiresAtIndex = reader.GetOrdinal("ExpiresAt");
                 var processedIndex = reader.GetOrdinal("Processed");
                 var headersIndex = reader.GetOrdinal("Headers");
                 var payloadIndex = reader.GetOrdinal("Payload");
@@ -109,9 +108,7 @@ namespace Rhino.ServiceBus.SqlQueues
                                   QueueName = queueName,
                                   SubQueueName = null
                               };
-                    if (!reader.IsDBNull(expiresAtIndex))
-                        raw.ExpiresAt = reader.GetDateTime(expiresAtIndex);
-
+                    
                     if (!reader.IsDBNull(payloadIndex))
                         raw.Payload = reader.GetSqlBinary(payloadIndex).Value;
                 }

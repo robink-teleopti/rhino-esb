@@ -12,7 +12,6 @@ namespace Rhino.ServiceBus.SqlQueues
         public string SubQueueName { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ProcessingUntil { get; set; }
-        public DateTime ExpiresAt { get; set; }
         public bool Processed { get; set; }
         public string Headers { get; set; }
         public byte[] Payload { get; set; }

@@ -24,10 +24,14 @@ namespace Rhino.ServiceBus.SqlQueues
             {
                 foreach (var message in queue.GetAllMessages(SubQueue.Timeout.ToString()))
                 {
-                    var timeToSend = XmlConvert.ToDateTime(message.Headers["time-to-send"],XmlDateTimeSerializationMode.Utc);
-                    logger.DebugFormat("Registering message {0} to be sent at {1} on {2}",
-                                  message.Id, timeToSend, queue.QueueName);
-                    writer.Add(timeToSend, message.Id);
+                	var time = message.Headers["time-to-send"];
+					if (!string.IsNullOrEmpty(time))
+					{
+						var timeToSend = XmlConvert.ToDateTime(time, XmlDateTimeSerializationMode.Utc);
+						logger.DebugFormat("Registering message {0} to be sent at {1} on {2}",
+						                   message.Id, timeToSend, queue.QueueName);
+						writer.Add(timeToSend, message.Id);
+					}
                 }
             });
             timeoutTimer = new Timer(OnTimeoutCallback, null, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));

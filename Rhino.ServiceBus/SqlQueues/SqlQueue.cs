@@ -28,7 +28,7 @@ namespace Rhino.ServiceBus.SqlQueues
                 command.CommandType = CommandType.StoredProcedure;
                 command.Parameters.AddWithValue("@Endpoint", _endpoint.ToString());
                 command.Parameters.AddWithValue("@Queue", _queueName);
-                command.Parameters.AddWithValue("@SubQueue", subQueue);
+                command.Parameters.AddWithValue("@Subqueue", (object)subQueue ?? DBNull.Value);
                 command.Parameters.AddWithValue("@MessageId", message.Id);
 
                 command.ExecuteNonQuery();
@@ -65,52 +65,46 @@ namespace Rhino.ServiceBus.SqlQueues
         public IEnumerable<Message> GetAllMessages(string queue)
         {
             var rawList = new List<RawMessage>();
-            using (var connection = new SqlConnection(_connectionString))
+            using (var tx = BeginTransaction())
             {
-                connection.Open();
-                using (var transaction = connection.BeginTransaction())
-                {
-                    using (var command = connection.CreateCommand())
-                    {
-                        command.CommandText = "Queue.RecieveMessages";
-                        command.CommandType = CommandType.StoredProcedure;
-                        command.Transaction = transaction;
-                        command.Parameters.AddWithValue("@Endpoint", _endpoint.ToString());
-                        command.Parameters.AddWithValue("@Queue", _queueName);
-                        command.Parameters.AddWithValue("@SubQueue", queue);
+            	using (var command = tx.Connection.CreateCommand())
+            	{
+            		command.CommandText = "Queue.RecieveMessages";
+            		command.CommandType = CommandType.StoredProcedure;
+            		command.Transaction = tx.Transaction;
+            		command.Parameters.AddWithValue("@Endpoint", _endpoint.ToString());
+            		command.Parameters.AddWithValue("@Queue", _queueName);
+            		command.Parameters.AddWithValue("@SubQueue", queue);
 
-                        var reader = command.ExecuteReader();
-                        var messageIdIndex = reader.GetOrdinal("MessageId");
-                        var queueIdIndex = reader.GetOrdinal("QueueId");
-                        var createdAtIndex = reader.GetOrdinal("CreatedAt");
-                        var processingUntilIndex = reader.GetOrdinal("ProcessingUntil");
-                        var expiresAtIndex = reader.GetOrdinal("ExpiresAt");
-                        var processedIndex = reader.GetOrdinal("Processed");
-                        var headersIndex = reader.GetOrdinal("Headers");
-                        var payloadIndex = reader.GetOrdinal("Payload");
-                        while (reader.Read())
-                        {
-                            var raw = new RawMessage
-                                          {
-                                              CreatedAt = reader.GetDateTime(createdAtIndex),
-                                              ExpiresAt = reader.GetDateTime(expiresAtIndex),
-                                              Headers = reader.GetString(headersIndex),
-                                              MessageId = reader.GetInt32(messageIdIndex),
-                                              Processed = reader.GetBoolean(processedIndex),
-                                              ProcessingUntil = reader.GetDateTime(processingUntilIndex),
-                                              QueueId = reader.GetInt32(queueIdIndex),
-                                              QueueName = _queueName,
-                                              SubQueueName = queue
-                                          };
-                            raw.Payload = reader.GetSqlBinary(payloadIndex).Value;
-                            rawList.Add(raw);
-                        }
-                        reader.Close();
-                    }
-                    transaction.Commit();
-                }
+            		var reader = command.ExecuteReader();
+            		var messageIdIndex = reader.GetOrdinal("MessageId");
+            		var queueIdIndex = reader.GetOrdinal("QueueId");
+            		var createdAtIndex = reader.GetOrdinal("CreatedAt");
+            		var processingUntilIndex = reader.GetOrdinal("ProcessingUntil");
+            		var processedIndex = reader.GetOrdinal("Processed");
+            		var headersIndex = reader.GetOrdinal("Headers");
+            		var payloadIndex = reader.GetOrdinal("Payload");
+            		while (reader.Read())
+            		{
+            			var raw = new RawMessage
+            			          	{
+            			          		CreatedAt = reader.GetDateTime(createdAtIndex),
+            			          		Headers = reader.GetString(headersIndex),
+            			          		MessageId = reader.GetInt32(messageIdIndex),
+            			          		Processed = reader.GetBoolean(processedIndex),
+            			          		ProcessingUntil = reader.GetDateTime(processingUntilIndex),
+            			          		QueueId = reader.GetInt32(queueIdIndex),
+            			          		QueueName = _queueName,
+            			          		SubQueueName = queue
+            			          	};
+            			raw.Payload = reader.GetSqlBinary(payloadIndex).Value;
+            			rawList.Add(raw);
+            		}
+            		reader.Close();
+            	}
+            	tx.Transaction.Commit();
             }
-            return rawList.Select(raw => raw.ToMessage());
+        	return rawList.Select(raw => raw.ToMessage());
         }
 
         public Message PeekById(int messageId)
@@ -129,27 +123,29 @@ namespace Rhino.ServiceBus.SqlQueues
                 var queueIdIndex = reader.GetOrdinal("QueueId");
                 var createdAtIndex = reader.GetOrdinal("CreatedAt");
                 var processingUntilIndex = reader.GetOrdinal("ProcessingUntil");
-                var expiresAtIndex = reader.GetOrdinal("ExpiresAt");
                 var processedIndex = reader.GetOrdinal("Processed");
                 var headersIndex = reader.GetOrdinal("Headers");
                 var payloadIndex = reader.GetOrdinal("Payload");
-                var subQueueNameIndex = reader.GetOrdinal("SubQueueName");
+                var subQueueNameIndex = reader.GetOrdinal("SubqueueName");
                 while (reader.Read())
                 {
                     raw = new RawMessage
                               {
                                   CreatedAt = reader.GetDateTime(createdAtIndex),
-                                  ExpiresAt = reader.GetDateTime(expiresAtIndex),
                                   Headers = reader.GetString(headersIndex),
                                   MessageId = reader.GetInt32(messageIdIndex),
                                   Processed = reader.GetBoolean(processedIndex),
                                   ProcessingUntil = reader.GetDateTime(processingUntilIndex),
                                   QueueId = reader.GetInt32(queueIdIndex),
-                                  QueueName = _queueName,
-                                  SubQueueName = reader.GetString(subQueueNameIndex)
+                                  QueueName = _queueName
                               };
+
+					if (!reader.IsDBNull(subQueueNameIndex))
+                		raw.SubQueueName = reader.GetString(subQueueNameIndex);
+					if (!reader.IsDBNull(payloadIndex))
                     raw.Payload = reader.GetSqlBinary(payloadIndex).Value;
                 }
+				reader.Close();
             }
             return raw == null ? null : raw.ToMessage();
         }
