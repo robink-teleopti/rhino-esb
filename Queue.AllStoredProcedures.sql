@@ -91,39 +91,27 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-    IF(@Subqueue is null)
+	SELECT @QueueId = QueueId FROM Queue.Queues WHERE QueueName = @Queue AND Endpoint = @Endpoint;
+	if (@QueueId is null)
 		BEGIN
-			SELECT @QueueId = QueueId
-			FROM Queue.Queues
-			WHERE QueueName = @Queue
-			AND Endpoint = @Endpoint;
-			
-			if (@QueueId is null)
-				BEGIN
-					INSERT INTO Queue.Queues (QueueName,Endpoint) VALUES (@Queue,@Endpoint)
-					SELECT @QueueId = SCOPE_IDENTITY()
-				END
+			INSERT INTO Queue.Queues (QueueName,Endpoint) VALUES (@Queue,@Endpoint)
+			SELECT @QueueId = SCOPE_IDENTITY()
 		END
-	ELSE
+		
+	IF (@Subqueue is not null)
 		BEGIN
-			SELECT @QueueId = s.QueueID
-			FROM Queue.Queues p
-			INNER JOIN Queue.Queues s
-				ON p.QueueId = s.ParentQueueId
-			WHERE p.QueueName = @Queue
-			AND p.Endpoint = @Endpoint
-			AND s.QueueName = @Subqueue
+			DECLARE @SubqueueId AS int
 			
-			if (@QueueId is null)
+			SELECT @SubqueueId = s.QueueID FROM Queue.Queues p INNER JOIN Queue.Queues s ON p.QueueId = s.ParentQueueId WHERE p.QueueName = @Queue AND p.Endpoint = @Endpoint AND s.QueueName = @Subqueue
+			if (@SubqueueId is null)
 				BEGIN
-					INSERT INTO Queue.Queues (QueueName,Endpoint) VALUES (@Queue,@Endpoint)
-					SELECT @QueueId = SCOPE_IDENTITY()
-					
 					INSERT INTO Queue.Queues (QueueName,ParentQueueId,Endpoint) VALUES (@Subqueue,@QueueId,@Endpoint)
-					SELECT @QueueId = SCOPE_IDENTITY()
+					SELECT @SubqueueId = SCOPE_IDENTITY()
 				END
+				
+			SET @QueueId = @SubqueueId
 		END
-	
+
 	SET NOCOUNT OFF;
 	RETURN @QueueId
 END
