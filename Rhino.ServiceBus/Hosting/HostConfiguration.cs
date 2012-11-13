@@ -117,7 +117,6 @@ namespace Rhino.ServiceBus.Hosting
             config.Bus.LogEndpoint = LogEndpoint;
             config.Bus.Transactional = Transactional.ToString();
             config.Bus.Path = Path;
-            config.Bus.ConnectionString = ConnectionString;
             config.Bus.EnablePerformanceCounters = EnablePerformanceCounter;
             config.Security.Key = SecurityKey;
             foreach (var message in Messages)

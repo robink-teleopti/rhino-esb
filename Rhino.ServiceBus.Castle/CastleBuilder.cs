@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using Castle.Core;
 using Castle.Core.Configuration;
@@ -10,6 +11,7 @@ using Rhino.ServiceBus.Actions;
 using Rhino.ServiceBus.Config;
 using Rhino.ServiceBus.Convertors;
 using Rhino.ServiceBus.DataStructures;
+using Rhino.ServiceBus.Hosting;
 using Rhino.ServiceBus.Impl;
 using Rhino.ServiceBus.Internal;
 using Rhino.ServiceBus.LoadBalancer;
@@ -283,10 +285,10 @@ namespace Rhino.ServiceBus.Castle
         
         public void RegisterSqlQueuesTransport()
         {
-            var busConfig = config.ConfigurationSection.Bus;
+            var connectionString = DefaultHost.QueueConnectionString;
             container.Register(
                 Component.For<IStorage>().ImplementedBy<SqlStorage>().LifeStyle.Is(LifestyleType.Singleton).DependsOn(
-                    new {connectionString = busConfig.ConnectionString}));
+                    new {connectionString}));
             container.Register(
                 Component.For<ISubscriptionStorage>()
                     .LifeStyle.Is(LifestyleType.Singleton)
@@ -302,8 +304,7 @@ namespace Rhino.ServiceBus.Castle
                     {
                         threadCount = config.ThreadCount,
                         endpoint = config.Endpoint,
-                        numberOfRetries = config.NumberOfRetries,
-                        connectionString = busConfig.ConnectionString,
+                        numberOfRetries = config.NumberOfRetries, connectionString,
                     }),
                 Component.For<IMessageBuilder<SqlQueues.MessagePayload>>()
                     .ImplementedBy<SqlQueuesMessageBuilder>()
@@ -314,7 +315,7 @@ namespace Rhino.ServiceBus.Castle
         public void RegisterSqlQueuesOneWay()
         {
             var oneWayConfig = (OnewayRhinoServiceBusConfiguration)config;
-            var busConfig = config.ConfigurationSection.Bus;
+            var connectionString = DefaultHost.QueueConnectionString;
             container.Register(
                      Component.For<IMessageBuilder<SqlQueues.MessagePayload>>()
                         .ImplementedBy<SqlQueuesMessageBuilder>()
@@ -325,7 +326,7 @@ namespace Rhino.ServiceBus.Castle
                         .DependsOn(new
                         {
                             messageOwners = oneWayConfig.MessageOwners.ToArray(),
-                            connectionString = busConfig.ConnectionString,
+                            connectionString,
                         })
                     );
         }

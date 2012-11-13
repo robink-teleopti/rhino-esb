@@ -1,4 +1,5 @@
 using System;
+using System.Configuration;
 using System.IO;
 using log4net;
 
@@ -101,6 +102,12 @@ namespace Rhino.ServiceBus.Hosting
             object instance = appDomain.CreateInstanceAndUnwrap(hostAsm,
                                                                 hostType);
             var hoster = (IApplicationHost)instance;
+
+            var connectionString = ConfigurationManager.ConnectionStrings["Queue"];
+            if (connectionString!=null)
+            {
+                hoster.SetQueueConnectionString(connectionString.ConnectionString);
+            }
 
             if (boosterType != null)
                 hoster.SetBootStrapperTypeName(boosterType);

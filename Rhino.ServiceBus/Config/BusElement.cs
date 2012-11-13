@@ -68,12 +68,6 @@ namespace Rhino.ServiceBus.Config
             set { this["path"] = value; }
         }
 
-        public string ConnectionString
-        {
-            get { return this["connectionString"] as string; }
-            set { this["connectionString"] = value; }
-        }
-        
         private string BasePath
         {
             get

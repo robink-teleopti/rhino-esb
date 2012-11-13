@@ -1,4 +1,5 @@
 using System;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -17,6 +18,12 @@ namespace Rhino.ServiceBus.Hosting
         private IStartable startable;
         private string bootStrapperName;
         private BusConfigurationSection hostConfiguration;
+        private static string queueConnectionString;
+
+        public static string QueueConnectionString
+        {
+            get { return queueConnectionString; }
+        }
 
         public IStartable Bus
         {
@@ -26,6 +33,11 @@ namespace Rhino.ServiceBus.Hosting
         public void SetBootStrapperTypeName(string typeName)
         {
             bootStrapperName = typeName;
+        }
+
+        public void SetQueueConnectionString(string connectionString)
+        {
+            queueConnectionString = connectionString;
         }
 
         public void Start<TBootStrapper>()
@@ -80,6 +92,12 @@ namespace Rhino.ServiceBus.Hosting
 
             if (string.IsNullOrEmpty(bootStrapperName) == false)
                 bootStrapperType = assembly.GetType(bootStrapperName);
+
+            var queueConnection = ConfigurationManager.ConnectionStrings["Queue"];
+            if (queueConnection!=null)
+            {
+                queueConnectionString = queueConnection.ConnectionString;
+            }
 
             bootStrapperType = bootStrapperType ??
                 GetAutoBootStrapperType(assembly);
