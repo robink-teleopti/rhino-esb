@@ -172,12 +172,17 @@ namespace Rhino.ServiceBus.SqlQueues
                                        endpoint);
                     continue;
                 }
+					catch(SqlException e)
+				{
+					logger.Debug("Could not get message from database.", e);
+					continue;
+				}
                 catch (ObjectDisposedException)
                 {
                     logger.DebugFormat("Shutting down the transport for {0} thread {1}", endpoint, context);
                     return;
                 }
-                catch (SqlException e)
+                catch (InvalidOperationException e)
                 {
                     logger.Error(
                         "An error occured while recieving a message, shutting down message processing thread", e);
@@ -201,7 +206,13 @@ namespace Rhino.ServiceBus.SqlQueues
                     logger.DebugFormat("Could not find a message on {0} during the timeout period",
                                        endpoint);
                     continue;
-                }
+				}
+				catch (SqlException e)
+				{
+					logger.Debug("Could not get message from database.",
+									   e);
+					continue;
+				}
                 catch (Exception e)
                 {
                     logger.Error(
