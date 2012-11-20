@@ -2,6 +2,7 @@
 using System.Data;
 using System.Data.SqlClient;
 using Rhino.ServiceBus.Util;
+using log4net;
 
 namespace Rhino.ServiceBus.SqlQueues
 {
@@ -9,6 +10,7 @@ namespace Rhino.ServiceBus.SqlQueues
     {
         private readonly Uri _endpoint;
         private readonly string _connectionString;
+    	private static readonly ILog Logger = LogManager.GetLogger(typeof (SqlQueueManager));
 
         public SqlQueueManager(Uri endpoint, string connectionString)
         {
@@ -26,11 +28,12 @@ namespace Rhino.ServiceBus.SqlQueues
             
         }
 
-        public void CreateQueues(string queueName)
+        public int CreateQueue(string queueName)
         {
-            using (BeginTransaction())
+        	int queueId;
+        	using (BeginTransaction())
             {
-                using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
+            	using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
                 {
                     command.CommandText = "Queue.CreateQueueIfMissing";
                     command.CommandType = CommandType.StoredProcedure;
@@ -38,28 +41,27 @@ namespace Rhino.ServiceBus.SqlQueues
                     command.Parameters.AddWithValue("@Endpoint", _endpoint.ToString());
                     command.Parameters.AddWithValue("@Queue", queueName);
 
-                    command.ExecuteNonQuery();
+                	queueId = (int) command.ExecuteScalar();
                 }
                 SqlTransactionContext.Current.Transaction.Commit();
-            }
+			}
+        	return queueId;
         }
 
-        public ISqlQueue GetQueue(string queueName)
+    	public ISqlQueue GetQueue(string queueName)
         {
             return new SqlQueue(queueName, _connectionString, _endpoint);
         }
 
-        public bool Peek(string queueName)
+        public bool Peek(int queueId)
         {
             using (var command = SqlTransactionContext.Current.Connection.CreateCommand())
             {
                 command.CommandText = "Queue.PeekMessage";
                 command.CommandType = CommandType.StoredProcedure;
                 command.Transaction = SqlTransactionContext.Current.Transaction;
-                command.Parameters.AddWithValue("@Endpoint", _endpoint.ToString());
-                command.Parameters.AddWithValue("@Queue", queueName);
-                command.Parameters.AddWithValue("@SubQueue", DBNull.Value);
-
+                command.Parameters.AddWithValue("@QueueId", queueId);
+                
                 var reader = command.ExecuteReader();
                 if (reader.HasRows)
                 {
@@ -71,7 +73,7 @@ namespace Rhino.ServiceBus.SqlQueues
             return false;
         }
 
-        public Message Receive(string queueName, TimeSpan timeOut)
+        public Message Receive(int queueId, TimeSpan timeOut)
         {
             RawMessage raw = null;
 
@@ -81,13 +83,10 @@ namespace Rhino.ServiceBus.SqlQueues
                 command.CommandText = "Queue.RecieveMessage";
                 command.CommandType = CommandType.StoredProcedure;
                 command.Transaction = SqlTransactionContext.Current.Transaction;
-                command.Parameters.AddWithValue("@Endpoint", _endpoint.ToString());
-                command.Parameters.AddWithValue("@Queue", queueName);
-                command.Parameters.AddWithValue("@SubQueue", DBNull.Value);
+                command.Parameters.AddWithValue("@QueueId", queueId);
 
                 var reader = command.ExecuteReader();
                 var messageIdIndex = reader.GetOrdinal("MessageId");
-                var queueIdIndex = reader.GetOrdinal("QueueId");
                 var createdAtIndex = reader.GetOrdinal("CreatedAt");
                 var processingUntilIndex = reader.GetOrdinal("ProcessingUntil");
                 var processedCountIndex = reader.GetOrdinal("ProcessedCount");
@@ -104,8 +103,7 @@ namespace Rhino.ServiceBus.SqlQueues
                                   Processed = reader.GetBoolean(processedIndex),
                                   ProcessingUntil = reader.GetDateTime(processingUntilIndex),
                                   ProcessedCount = reader.GetInt32(processedCountIndex),
-                                  QueueId = reader.GetInt32(queueIdIndex),
-                                  QueueName = queueName,
+                                  QueueId = queueId,
                                   SubQueueName = null
                               };
                     
@@ -148,6 +146,11 @@ namespace Rhino.ServiceBus.SqlQueues
                 command.Parameters.AddWithValue("@ExpiresAt", DBNull.Value);
                 command.Parameters.AddWithValue("@ProcessingUntil", contents.CreatedAt);
                 command.Parameters.AddWithValue("@Headers", contents.Headers);
+
+if (Logger.IsDebugEnabled)
+{
+	Logger.DebugFormat("Sending message to {0} on {1}. Headers are '{2}'.",uri,uri.GetQueueName(),contents.Headers);
+}
 
                 command.ExecuteNonQuery();
             }

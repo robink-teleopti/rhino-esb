@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Specialized;
-using System.Text;
 
 namespace Rhino.ServiceBus.SqlQueues
 {
@@ -8,7 +7,6 @@ namespace Rhino.ServiceBus.SqlQueues
     {
         public int MessageId { get; set; }
         public int QueueId { get; set; }
-        public string QueueName { get; set; }
         public string SubQueueName { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime ProcessingUntil { get; set; }
@@ -23,7 +21,6 @@ namespace Rhino.ServiceBus.SqlQueues
                               {
                                   Data = Payload,
                                   Id = MessageId,
-                                  Queue = QueueName,
                                   SentAt = CreatedAt,
                                   SubQueue = SubQueueName,
                                   ProcessedCount = ProcessedCount
@@ -46,18 +43,7 @@ namespace Rhino.ServiceBus.SqlQueues
 
         public void SetHeaders(NameValueCollection nameValueCollection)
         {
-            StringBuilder stringBuilder = new StringBuilder();
-            foreach (string key in nameValueCollection.Keys)
-            {
-                if (stringBuilder.Length>0)
-                {
-                    stringBuilder.Append("##");
-                }
-                stringBuilder.Append(key);
-                stringBuilder.Append("#");
-                stringBuilder.Append(nameValueCollection[key]);
-            }
-            Headers = stringBuilder.ToString();
+            Headers = MessagePayload.CompressHeaders(nameValueCollection);
         }
     }
 }

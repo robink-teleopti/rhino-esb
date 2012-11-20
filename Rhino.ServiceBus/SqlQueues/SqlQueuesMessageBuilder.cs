@@ -35,7 +35,7 @@ namespace Rhino.ServiceBus.SqlQueues
             var payload=new MessagePayload
             {
                 Data = data,
-                SentAt = DateTime.UtcNow,
+                SentAt = DateTime.Now,
                 Headers = new NameValueCollection
                         {
                             {"id", messageId.ToString()},

@@ -285,6 +285,7 @@ namespace Rhino.ServiceBus.SqlQueues
             var addInstanceSubscription = msgInfo.Message as AddInstanceSubscription;
             if (addInstanceSubscription != null)
             {
+				logger.DebugFormat("Adding instance subscription for {0} on {1}.",addInstanceSubscription.Type, addInstanceSubscription.Endpoint);
                 return ConsumeAddInstanceSubscription(addInstanceSubscription);
             }
             var removeInstanceSubscription = msgInfo.Message as RemoveInstanceSubscription;
@@ -309,6 +310,11 @@ namespace Rhino.ServiceBus.SqlQueues
 
         public bool ConsumeAddInstanceSubscription(AddInstanceSubscription subscription)
         {
+			if (logger.IsDebugEnabled)
+			{
+				logger.DebugFormat("Adding instance subscription for {0} on {1}.",subscription.InstanceSubscriptionKey,subscription.Endpoint);
+			}
+
             int itemId = storage.AddItem(SubscriptionsKey + localEndpoint, subscription, SerializeMessage);
 
             remoteInstanceSubscriptions.Add(

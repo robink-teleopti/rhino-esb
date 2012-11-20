@@ -13,7 +13,7 @@ namespace Rhino.ServiceBus.SqlQueues
     public class SqlStorage : IStorage
     {
         private readonly string connectionString;
-
+    	
         public SqlStorage(string connectionString)
         {
             this.connectionString = connectionString;

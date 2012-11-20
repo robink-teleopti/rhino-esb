@@ -234,7 +234,7 @@ namespace Rhino.ServiceBus.StructureMap
                                             .Ctor<string>("localEndpoint").Is(config.Endpoint.ToString());
                                         c.For<ITransport>().Singleton().Use<SqlQueuesTransport>()
                                             .Ctor<int>("threadCount").Is(config.ThreadCount)
-                                            .Ctor<Uri>().Is(config.Endpoint)
+											.Ctor<Uri>("queueEndpoint").Is(config.Endpoint)
                                             .Ctor<int>("numberOfRetries").Is(config.NumberOfRetries)
                                             .Ctor<string>().Is(connectionString);
                                         c.For<IMessageBuilder<SqlQueues.MessagePayload>>().Singleton().Use

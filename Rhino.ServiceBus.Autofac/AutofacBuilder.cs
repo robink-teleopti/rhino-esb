@@ -276,7 +276,7 @@ namespace Rhino.ServiceBus.Autofac
                 .SingleInstance();
             builder.RegisterType<SqlQueuesTransport>()
                 .WithParameter("threadCount", config.ThreadCount)
-                .WithParameter("endpoint", config.Endpoint)
+                .WithParameter("queueEndpoint", config.Endpoint)
                 .WithParameter("numberOfRetries", config.NumberOfRetries)
                 .WithParameter("connectionString", connectionString)
                 .As<ITransport>()

@@ -16,7 +16,7 @@ namespace Rhino.ServiceBus.SqlQueues
     [CLSCompliant(false)]
     public class SqlQueuesTransport : ITransport
     {
-        private readonly Uri endpoint;
+        private readonly Uri queueEndpoint;
         private readonly IEndpointRouter endpointRouter;
         private readonly IMessageSerializer messageSerializer;
         private readonly int threadCount;
@@ -36,8 +36,9 @@ namespace Rhino.ServiceBus.SqlQueues
         private readonly ILog logger = LogManager.GetLogger(typeof(SqlQueuesTransport));
         private TimeoutAction timeout;
         private ISqlQueue queue;
+    	private int _queueId;
 
-        public SqlQueuesTransport(Uri endpoint,
+    	public SqlQueuesTransport(Uri queueEndpoint,
             IEndpointRouter endpointRouter,
             IMessageSerializer messageSerializer,
             int threadCount,
@@ -45,7 +46,7 @@ namespace Rhino.ServiceBus.SqlQueues
             int numberOfRetries,
             IMessageBuilder<MessagePayload> messageBuilder)
         {
-            this.endpoint = endpoint;
+            this.queueEndpoint = queueEndpoint;
             this.numberOfRetries = numberOfRetries;
             this.messageBuilder = messageBuilder;
             this.endpointRouter = endpointRouter;
@@ -53,7 +54,7 @@ namespace Rhino.ServiceBus.SqlQueues
             this.threadCount = threadCount;
             this.connectionString = connectionString;
 
-            queueName = endpoint.GetQueueName();
+            queueName = queueEndpoint.GetQueueName();
 
             threads = new Thread[threadCount];
 
@@ -66,7 +67,7 @@ namespace Rhino.ServiceBus.SqlQueues
         public void Dispose()
         {
             shouldContinue = false;
-            logger.DebugFormat("Stopping transport for {0}", endpoint);
+            logger.DebugFormat("Stopping transport for {0}", queueEndpoint);
 
             if (timeout != null)
                 timeout.Dispose();
@@ -123,14 +124,14 @@ namespace Rhino.ServiceBus.SqlQueues
 
             shouldContinue = true;
 
-            _sqlQueueManager = new SqlQueueManager(endpoint, connectionString);
-            _sqlQueueManager.CreateQueues(queueName);
+            _sqlQueueManager = new SqlQueueManager(queueEndpoint, connectionString);
+            _queueId = _sqlQueueManager.CreateQueue(queueName);
 
             queue = _sqlQueueManager.GetQueue(queueName);
 
             timeout = new TimeoutAction(queue);
             logger.DebugFormat("Starting {0} threads to handle messages on {1}, number of retries: {2}",
-                threadCount, endpoint, numberOfRetries);
+                threadCount, queueEndpoint, numberOfRetries);
             for (var i = 0; i < threadCount; i++)
             {
                 threads[i] = new Thread(ReceiveMessage)
@@ -156,7 +157,7 @@ namespace Rhino.ServiceBus.SqlQueues
                 {
                     using (var tx = _sqlQueueManager.BeginTransaction())
                     {
-                        if (!_sqlQueueManager.Peek(queueName))
+                        if (!_sqlQueueManager.Peek(_queueId))
                         {
                             sleepTime += 100;
                             sleepTime = Math.Min(sleepTime, SleepMax);
@@ -169,7 +170,7 @@ namespace Rhino.ServiceBus.SqlQueues
                 catch (TimeoutException)
                 {
                     logger.DebugFormat("Could not find a message on {0} during the timeout period",
-                                       endpoint);
+                                       queueEndpoint);
                     continue;
                 }
 					catch(SqlException e)
@@ -179,7 +180,7 @@ namespace Rhino.ServiceBus.SqlQueues
 				}
                 catch (ObjectDisposedException)
                 {
-                    logger.DebugFormat("Shutting down the transport for {0} thread {1}", endpoint, context);
+                    logger.DebugFormat("Shutting down the transport for {0} thread {1}", queueEndpoint, context);
                     return;
                 }
                 catch (InvalidOperationException e)
@@ -197,14 +198,14 @@ namespace Rhino.ServiceBus.SqlQueues
                 {
                     using (var tx = _sqlQueueManager.BeginTransaction())
                     {
-                        message = _sqlQueueManager.Receive(queueName, TimeSpan.FromSeconds(10));
+                        message = _sqlQueueManager.Receive(_queueId, TimeSpan.FromSeconds(10));
                         tx.Transaction.Commit();
                     }
                 }
                 catch (TimeoutException)
                 {
                     logger.DebugFormat("Could not find a message on {0} during the timeout period",
-                                       endpoint);
+                                       queueEndpoint);
                     continue;
 				}
 				catch (SqlException e)
@@ -228,7 +229,7 @@ namespace Rhino.ServiceBus.SqlQueues
                         Queue.MoveTo(SubQueue.Errors.ToString(), message);
                         Queue.EnqueueDirectlyTo(SubQueue.Errors.ToString(), new MessagePayload
                                                                                 {
-                                                                                    SentAt = DateTime.UtcNow,
+                                                                                    SentAt = DateTime.Now,
                                                                                     Data = null,
                                                                                     Headers = new NameValueCollection
                                                                                                   {
@@ -256,7 +257,7 @@ namespace Rhino.ServiceBus.SqlQueues
                     logger.DebugFormat("Starting to handle message {0} of type {1} on {2}",
                                        message.Id,
                                        msgType,
-                                       endpoint);
+                                       queueEndpoint);
                     switch (msgType)
                     {
                         case MessageType.AdministrativeMessageMarker:
@@ -276,7 +277,7 @@ namespace Rhino.ServiceBus.SqlQueues
                             break;
                         case MessageType.TimeoutMessageMarker:
                             var timeToSend = XmlConvert.ToDateTime(message.Headers["time-to-send"],
-                                                                   XmlDateTimeSerializationMode.Utc);
+                                                                   XmlDateTimeSerializationMode.Unspecified);
                             if (timeToSend > DateTime.Now)
                             {
                                 timeout.Register(message);
@@ -354,7 +355,7 @@ namespace Rhino.ServiceBus.SqlQueues
                         {
                             AllMessages = messages,
                             Message = msg,
-                            Destination = endpoint,
+                            Destination = queueEndpoint,
                             MessageId = messageId,
                             Source = source,
                             TransportMessageId = message.Id.ToString(),
@@ -390,7 +391,7 @@ namespace Rhino.ServiceBus.SqlQueues
         {
             logger.DebugFormat("Discarding message {0} ({1}) because there are no consumers for it.",
                 message, currentMessageInformation.TransportMessageId);
-            Send(new Endpoint { Uri = endpoint.AddSubQueue(SubQueue.Discarded) }, new[] { message });
+            Send(new Endpoint { Uri = queueEndpoint.AddSubQueue(SubQueue.Discarded) }, new[] { message });
         }
 
         private object[] DeserializeMessages(Message message)
@@ -429,7 +430,7 @@ namespace Rhino.ServiceBus.SqlQueues
 
         public Endpoint Endpoint
         {
-            get { return endpointRouter.GetRoutedEndpoint(endpoint); }
+            get { return endpointRouter.GetRoutedEndpoint(queueEndpoint); }
         }
 
         public int ThreadCount

@@ -46,9 +46,9 @@ namespace Rhino.ServiceBus.SqlQueues
                 command.Parameters.AddWithValue("@Queue", _queueName);
                 command.Parameters.AddWithValue("@SubQueue", subQueue);
                 command.Parameters.AddWithValue("@Headers", MessagePayload.CompressHeaders(messagePayload.Headers));
-                command.Parameters.AddWithValue("@ProcessingUntil", DateTime.UtcNow);
+                command.Parameters.AddWithValue("@ProcessingUntil", DateTime.Now);
                 command.Parameters.AddWithValue("@CreatedAt", messagePayload.SentAt);
-                command.Parameters.AddWithValue("@ExpiresAt", DateTime.UtcNow.AddDays(2));
+                command.Parameters.AddWithValue("@ExpiresAt", DateTime.Now.AddDays(2));
                 command.Parameters.Add("@Payload", SqlDbType.VarBinary, -1);
 
                 command.Parameters["@Payload"].Value = (messagePayload.Data ?? (object)DBNull.Value);
@@ -94,7 +94,6 @@ namespace Rhino.ServiceBus.SqlQueues
             			          		Processed = reader.GetBoolean(processedIndex),
             			          		ProcessingUntil = reader.GetDateTime(processingUntilIndex),
             			          		QueueId = reader.GetInt32(queueIdIndex),
-            			          		QueueName = _queueName,
             			          		SubQueueName = queue
             			          	};
             			raw.Payload = reader.GetSqlBinary(payloadIndex).Value;
@@ -136,8 +135,7 @@ namespace Rhino.ServiceBus.SqlQueues
                                   MessageId = reader.GetInt32(messageIdIndex),
                                   Processed = reader.GetBoolean(processedIndex),
                                   ProcessingUntil = reader.GetDateTime(processingUntilIndex),
-                                  QueueId = reader.GetInt32(queueIdIndex),
-                                  QueueName = _queueName
+                                  QueueId = reader.GetInt32(queueIdIndex)
                               };
 
 					if (!reader.IsDBNull(subQueueNameIndex))

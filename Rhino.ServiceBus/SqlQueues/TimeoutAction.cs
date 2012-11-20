@@ -20,20 +20,22 @@ namespace Rhino.ServiceBus.SqlQueues
         public TimeoutAction(ISqlQueue queue)
         {
             this.queue = queue;
-            timeoutMessageIds.Write(writer =>
-            {
-                foreach (var message in queue.GetAllMessages(SubQueue.Timeout.ToString()))
-                {
-                	var time = message.Headers["time-to-send"];
-					if (!string.IsNullOrEmpty(time))
-					{
-						var timeToSend = XmlConvert.ToDateTime(time, XmlDateTimeSerializationMode.Utc);
-						logger.DebugFormat("Registering message {0} to be sent at {1} on {2}",
-						                   message.Id, timeToSend, queue.QueueName);
-						writer.Add(timeToSend, message.Id);
-					}
-                }
-            });
+        	timeoutMessageIds.Write(writer =>
+        	                        	{
+        	                        		var allMessages = queue.GetAllMessages(SubQueue.Timeout.ToString());
+        	                        		foreach (var message in allMessages)
+        	                        		{
+        	                        			var time = message.Headers["time-to-send"];
+        	                        			if (!string.IsNullOrEmpty(time))
+        	                        			{
+        	                        				var timeToSend = XmlConvert.ToDateTime(time,
+        	                        				                                       XmlDateTimeSerializationMode.Unspecified);
+        	                        				logger.DebugFormat("Registering message {0} to be sent at {1} on {2}",
+        	                        				                   message.Id, timeToSend, queue.QueueName);
+        	                        				writer.Add(timeToSend, message.Id);
+        	                        			}
+        	                        		}
+        	                        	});
             timeoutTimer = new Timer(OnTimeoutCallback, null, TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
         }
 
@@ -66,7 +68,7 @@ namespace Rhino.ServiceBus.SqlQueues
                         try
                         {
                             logger.DebugFormat("Moving message {0} to main queue: {1}",
-                                               pair.Value, queue.QueueName);
+                                               messageId, queue.QueueName);
                             using (var tx = queue.BeginTransaction())
                             {
                                 var message = queue.PeekById(messageId);
@@ -111,7 +113,7 @@ namespace Rhino.ServiceBus.SqlQueues
         {
             timeoutMessageIds.Write(writer =>
             {
-                var timeToSend = XmlConvert.ToDateTime(message.Headers["time-to-send"], XmlDateTimeSerializationMode.Utc);
+                var timeToSend = XmlConvert.ToDateTime(message.Headers["time-to-send"], XmlDateTimeSerializationMode.Unspecified);
 
                 logger.DebugFormat("Registering message {0} to be sent at {1} on {2}",
                                    message.Id, timeToSend, queue.QueueName);

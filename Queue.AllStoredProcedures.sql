@@ -173,6 +173,7 @@ BEGIN
 
 	UPDATE Queue.Messages
 	SET QueueId = @QueueId
+	WHERE MessageId=@MessageId
 END
 GO
 ----
@@ -180,16 +181,10 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[Pee
 DROP PROCEDURE [Queue].[PeekMessage]
 GO
 CREATE PROCEDURE [Queue].[PeekMessage]
-	@Endpoint nvarchar(250),
-	@Queue nvarchar(50),
-	@Subqueue nvarchar(50)
+	@QueueId int
 AS
 BEGIN
 	SET NOCOUNT ON;
-
-    DECLARE @QueueId int;
-    
-    EXEC Queue.GetAndAddQueue @Endpoint,@Queue,@Subqueue,@QueueId=@QueueId OUTPUT;
 	
 	SELECT TOP 1 *
 	FROM Queue.Messages
@@ -217,9 +212,10 @@ BEGIN
     LEFT JOIN Queue.Queues q
 		ON m.QueueId=q.QueueId
 		AND q.ParentQueueId IS NOT NULL
-	WHERE isnull(ExpiresAt,DATEADD(mi,1,GetDate())) > GetDate()
-	AND Processed=0
-	AND ProcessingUntil<GetDate()
+	WHERE isnull(m.ExpiresAt,DATEADD(mi,1,GetDate())) > GetDate()
+	AND m.Processed=0
+	AND m.ProcessingUntil<GetDate()
+	AND m.MessageId=@MessageId
 	ORDER BY CreatedAt ASC
 END
 GO
@@ -228,16 +224,10 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[Queue].[Rec
 DROP PROCEDURE [Queue].[RecieveMessage]
 GO
 CREATE PROCEDURE [Queue].[RecieveMessage]
-	@Endpoint nvarchar(250),
-	@Queue nvarchar(50),
-	@Subqueue nvarchar(50)
+	@QueueId int
 AS
 BEGIN
 	SET NOCOUNT ON;
-
-    DECLARE @QueueId int;
-    
-    EXEC Queue.GetAndAddQueue @Endpoint,@Queue,@Subqueue,@QueueId=@QueueId OUTPUT;
 	
 	DECLARE @MessageId int;
 	SELECT TOP 1 @MessageId = MessageId

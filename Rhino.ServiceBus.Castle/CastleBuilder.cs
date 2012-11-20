@@ -303,7 +303,7 @@ namespace Rhino.ServiceBus.Castle
                     .DependsOn(new
                     {
                         threadCount = config.ThreadCount,
-                        endpoint = config.Endpoint,
+						queueEndpoint = config.Endpoint,
                         numberOfRetries = config.NumberOfRetries, connectionString,
                     }),
                 Component.For<IMessageBuilder<SqlQueues.MessagePayload>>()
