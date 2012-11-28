@@ -96,7 +96,11 @@ namespace Rhino.ServiceBus.SqlQueues
             			          		QueueId = reader.GetInt32(queueIdIndex),
             			          		SubQueueName = queue
             			          	};
-            			raw.Payload = reader.GetSqlBinary(payloadIndex).Value;
+            			var binValue = reader.GetSqlBinary(payloadIndex);
+						if (!binValue.IsNull)
+						{
+							raw.Payload = binValue.Value;
+						}
             			rawList.Add(raw);
             		}
             		reader.Close();
